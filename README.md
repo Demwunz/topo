@@ -64,7 +64,7 @@ You end up manually selecting files, guessing what's relevant, and hoping you di
 
 - **Automatic file selection** — no manual cherry-picking
 - **Multi-signal scoring** — BM25F text search, heuristics, import graphs, git history, all fused with RRF
-- **9 language support** — Rust, Go, Python, JavaScript, TypeScript, Java, Ruby, C, C++
+- **Any file, any language** — indexes every file in your repo; deep AST chunking for 9 languages and counting
 - **Token budgets** — `--max-bytes`, `--max-tokens`, `--min-score` for precise context control
 - **Incremental indexing** — only re-processes changed files via SHA-256 change detection
 - **Three output formats** — JSONL (pipes), JSON (APIs), human-readable (terminals)
@@ -560,27 +560,6 @@ Atlas is a Cargo workspace with 7 focused crates:
 | Slow on large repos | First index builds from scratch | Subsequent runs use incremental updates |
 | JSONL output in terminal | Pipe detection thinks stdout isn't a TTY | Use `--format human` explicitly |
 | No deep index data | Ran `atlas index` without `--deep` | Re-run with `--deep` flag |
-
-<p align="right">(<a href="#atlas">back to top</a>)</p>
-
----
-
-## VHS Demos
-
-The CLI demos in this README are generated with [VHS](https://github.com/charmbracelet/vhs). To regenerate:
-
-```bash
-# Install VHS
-brew install charmbracelet/tap/vhs
-
-# Record demos
-vhs vhs/hero.tape     # Hero demo
-vhs vhs/quick.tape    # Quick command demo
-vhs vhs/query.tape    # Query + scoring demo
-vhs vhs/render.tape   # Render + explain demo
-```
-
-Demo tapes live in the `vhs/` directory.
 
 <p align="right">(<a href="#atlas">back to top</a>)</p>
 
