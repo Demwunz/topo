@@ -1,0 +1,34 @@
+use crate::Cli;
+use anyhow::Result;
+
+pub fn run(cli: &Cli) -> Result<()> {
+    let description = serde_json::json!({
+        "name": "atlas",
+        "version": env!("CARGO_PKG_VERSION"),
+        "commands": ["index", "query", "quick", "render", "explain", "describe"],
+        "formats": ["jsonl", "json", "human"],
+        "languages": [
+            "rust", "go", "python", "javascript", "typescript",
+            "java", "ruby", "c", "cpp"
+        ],
+        "scoring": ["heuristic", "content", "hybrid"],
+        "presets": ["fast", "balanced", "deep", "thorough"],
+    });
+
+    match cli.effective_format() {
+        crate::OutputFormat::Human => {
+            println!("atlas v{}", env!("CARGO_PKG_VERSION"));
+            println!();
+            println!("Commands:  index, query, quick, render, explain, describe");
+            println!("Formats:   jsonl, json, human");
+            println!("Languages: rust, go, python, javascript, typescript, java, ruby, c, cpp");
+            println!("Scoring:   heuristic, content, hybrid");
+            println!("Presets:   fast, balanced, deep, thorough");
+        }
+        _ => {
+            println!("{}", serde_json::to_string_pretty(&description)?);
+        }
+    }
+
+    Ok(())
+}

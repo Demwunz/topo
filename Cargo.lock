@@ -79,6 +79,7 @@ dependencies = [
  "atlas-score",
  "atlas-treesit",
  "clap",
+ "serde",
  "serde_json",
  "tempfile",
 ]
