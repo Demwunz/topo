@@ -663,6 +663,6 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 **[Report Bug](https://github.com/demwunz/atlas/issues) · [Request Feature](https://github.com/demwunz/atlas/issues)**
 
-Made by [Fazal Majid](https://github.com/demwunz)
+Made by [Fazal Khan](https://git.io/D)
 
 </div>
