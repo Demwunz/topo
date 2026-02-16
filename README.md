@@ -127,6 +127,25 @@ atlas --version
 
 ---
 
+## MCP Server
+
+Use Atlas as an [MCP](https://modelcontextprotocol.io/) server in Claude Desktop, Cursor, Cline, or any MCP client. Exposes `atlas_query`, `atlas_explain`, and `atlas_index` as tools.
+
+```json
+{
+  "mcpServers": {
+    "atlas": {
+      "command": "atlas",
+      "args": ["--root", "/path/to/project", "mcp"]
+    }
+  }
+}
+```
+
+<p align="right">(<a href="#atlas">back to top</a>)</p>
+
+---
+
 ## Core Workflow
 
 Atlas has four main steps. Use `quick` to run them all at once, or each command individually for more control.
@@ -334,25 +353,6 @@ atlas describe --format json
   "languages": ["rust", "go", "python", "javascript", "typescript", "java", "ruby", "c", "cpp"],
   "scoring": ["heuristic", "content", "hybrid"],
   "presets": ["fast", "balanced", "deep", "thorough"]
-}
-```
-
-<p align="right">(<a href="#atlas">back to top</a>)</p>
-
-### `mcp` — MCP server for AI editors
-
-Starts an [MCP](https://modelcontextprotocol.io/) server on stdio. Exposes `atlas_query`, `atlas_explain`, and `atlas_index` as tools.
-
-Add to your MCP client config (Claude Desktop, Cursor, Cline, etc.):
-
-```json
-{
-  "mcpServers": {
-    "atlas": {
-      "command": "atlas",
-      "args": ["--root", "/path/to/project", "mcp"]
-    }
-  }
 }
 ```
 
