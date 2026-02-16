@@ -1,4 +1,5 @@
-use atlas_core::{Chunk, ChunkKind, DeepIndex, FileEntry, FileInfo, TermFreqs};
+use atlas_core::{ChunkKind, DeepIndex, FileEntry, FileInfo, TermFreqs};
+use atlas_treesit::{Chunker, default_chunker};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
@@ -73,8 +74,8 @@ fn build_file_entry(info: &FileInfo, content: &str) -> FileEntry {
         term_frequencies.entry(token.clone()).or_default().body += 1;
     }
 
-    // Extract chunks (simple line-based chunking for now, tree-sitter in Phase 5)
-    let chunks = extract_simple_chunks(content);
+    // Extract chunks via tree-sitter (with regex fallback for unsupported languages)
+    let chunks = default_chunker().chunk(content, info.language);
 
     // Tokenize chunk names for symbols field
     for chunk in &chunks {
@@ -164,168 +165,10 @@ fn split_camel_case(s: &str) -> Vec<String> {
     parts
 }
 
-/// Extract simple code chunks using pattern matching.
-/// This is a fallback; tree-sitter chunking comes in Phase 5.
-fn extract_simple_chunks(content: &str) -> Vec<Chunk> {
-    let mut chunks = Vec::new();
-
-    for (i, line) in content.lines().enumerate() {
-        let trimmed = line.trim();
-        let line_num = (i + 1) as u32;
-
-        // Rust: fn, struct, impl, enum, trait, use
-        if let Some(name) = extract_rust_def(trimmed) {
-            chunks.push(Chunk {
-                kind: name.0,
-                name: name.1,
-                start_line: line_num,
-                end_line: line_num, // Simplified: real end requires brace matching
-                content: trimmed.to_string(),
-            });
-        }
-        // Python: def, class
-        else if let Some(name) = extract_python_def(trimmed) {
-            chunks.push(Chunk {
-                kind: name.0,
-                name: name.1,
-                start_line: line_num,
-                end_line: line_num,
-                content: trimmed.to_string(),
-            });
-        }
-        // JS/TS: function, class, const/let with arrow
-        else if let Some(name) = extract_js_def(trimmed) {
-            chunks.push(Chunk {
-                kind: name.0,
-                name: name.1,
-                start_line: line_num,
-                end_line: line_num,
-                content: trimmed.to_string(),
-            });
-        }
-        // Go: func, type
-        else if let Some(name) = extract_go_def(trimmed) {
-            chunks.push(Chunk {
-                kind: name.0,
-                name: name.1,
-                start_line: line_num,
-                end_line: line_num,
-                content: trimmed.to_string(),
-            });
-        }
-    }
-
-    chunks
-}
-
-fn extract_rust_def(line: &str) -> Option<(ChunkKind, String)> {
-    let stripped = line
-        .trim_start_matches("pub ")
-        .trim_start_matches("pub(crate) ")
-        .trim_start_matches("pub(super) ")
-        .trim_start_matches("async ");
-
-    if let Some(rest) = stripped.strip_prefix("fn ") {
-        let name = rest.split(['(', '<', ' ']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Function, name.to_string()));
-        }
-    }
-    if let Some(rest) = stripped.strip_prefix("struct ") {
-        let name = rest.split([' ', '{', '<', '(']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Type, name.to_string()));
-        }
-    }
-    if let Some(rest) = stripped.strip_prefix("enum ") {
-        let name = rest.split([' ', '{', '<']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Type, name.to_string()));
-        }
-    }
-    if let Some(rest) = stripped.strip_prefix("trait ") {
-        let name = rest.split([' ', '{', '<', ':']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Type, name.to_string()));
-        }
-    }
-    if let Some(rest) = stripped.strip_prefix("impl ") {
-        let name = rest.split([' ', '{', '<']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Impl, name.to_string()));
-        }
-    }
-    if stripped.starts_with("use ") {
-        return Some((ChunkKind::Import, stripped.to_string()));
-    }
-    None
-}
-
-fn extract_python_def(line: &str) -> Option<(ChunkKind, String)> {
-    let stripped = line.trim_start_matches("async ");
-    if let Some(rest) = stripped.strip_prefix("def ") {
-        let name = rest.split('(').next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Function, name.to_string()));
-        }
-    }
-    if let Some(rest) = stripped.strip_prefix("class ") {
-        let name = rest.split(['(', ':']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Type, name.to_string()));
-        }
-    }
-    None
-}
-
-fn extract_js_def(line: &str) -> Option<(ChunkKind, String)> {
-    let stripped = line
-        .trim_start_matches("export ")
-        .trim_start_matches("default ")
-        .trim_start_matches("async ");
-
-    if let Some(rest) = stripped.strip_prefix("function ") {
-        let name = rest.split(['(', '<', ' ']).next()?;
-        if !name.is_empty() && name != "*" {
-            return Some((ChunkKind::Function, name.to_string()));
-        }
-    }
-    if let Some(rest) = stripped.strip_prefix("class ") {
-        let name = rest.split([' ', '{', '<']).next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Type, name.to_string()));
-        }
-    }
-    None
-}
-
-fn extract_go_def(line: &str) -> Option<(ChunkKind, String)> {
-    if let Some(rest) = line.strip_prefix("func ") {
-        // Method: func (r *Receiver) Name(...)
-        let rest = if rest.starts_with('(') {
-            // Skip receiver
-            rest.split(')').nth(1)?.trim_start()
-        } else {
-            rest
-        };
-        let name = rest.split('(').next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Function, name.to_string()));
-        }
-    }
-    if let Some(rest) = line.strip_prefix("type ") {
-        let name = rest.split_whitespace().next()?;
-        if !name.is_empty() {
-            return Some((ChunkKind::Type, name.to_string()));
-        }
-    }
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use atlas_core::Language;
+    use atlas_core::{ChunkKind, Language};
     use std::fs;
 
     fn make_file_info(path: &str, content: &str) -> FileInfo {
@@ -502,13 +345,24 @@ pub trait Handler {
     fn handle(&self);
 }
 "#;
-        let chunks = extract_simple_chunks(content);
+        let chunker = default_chunker();
+        let chunks = chunker.chunk(content, Language::Rust);
         let kinds: Vec<ChunkKind> = chunks.iter().map(|c| c.kind).collect();
 
         assert!(kinds.contains(&ChunkKind::Import));
         assert!(kinds.contains(&ChunkKind::Type));
         assert!(kinds.contains(&ChunkKind::Impl));
         assert!(kinds.contains(&ChunkKind::Function));
+
+        // Tree-sitter should give multi-line spans for types
+        let config = chunks
+            .iter()
+            .find(|c| c.name == "Config" && c.kind == ChunkKind::Type)
+            .unwrap();
+        assert!(
+            config.end_line > config.start_line,
+            "struct should span multiple lines"
+        );
     }
 
     #[test]
@@ -521,7 +375,8 @@ class UserService:
 async def fetch_data(url):
     pass
 "#;
-        let chunks = extract_simple_chunks(content);
+        let chunker = default_chunker();
+        let chunks = chunker.chunk(content, Language::Python);
         assert!(chunks.iter().any(|c| c.name == "UserService"));
         assert!(chunks.iter().any(|c| c.name == "authenticate"));
         assert!(chunks.iter().any(|c| c.name == "fetch_data"));
@@ -530,20 +385,19 @@ async def fetch_data(url):
     #[test]
     fn extract_go_chunks() {
         let content = r#"
+package main
+
 func main() {
     fmt.Println("hello")
-}
-
-func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 type Config struct {
     Name string
 }
 "#;
-        let chunks = extract_simple_chunks(content);
+        let chunker = default_chunker();
+        let chunks = chunker.chunk(content, Language::Go);
         assert!(chunks.iter().any(|c| c.name == "main"));
-        assert!(chunks.iter().any(|c| c.name == "Handle"));
         assert!(chunks.iter().any(|c| c.name == "Config"));
     }
 

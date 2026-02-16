@@ -64,7 +64,7 @@ You end up manually selecting files, guessing what's relevant, and hoping you di
 
 - **Automatic file selection** — no manual cherry-picking
 - **Multi-signal scoring** — BM25F text search, heuristics, import graphs, git history, all fused with RRF
-- **Any file, any language** — indexes every file in your repo; deep AST chunking for 9 languages and counting
+- **Any file, any language** — indexes every file in your repo; tree-sitter AST chunking for 18 languages with regex fallback
 - **Token budgets** — `--max-bytes`, `--max-tokens`, `--min-score` for precise context control
 - **Incremental indexing** — only re-processes changed files via SHA-256 change detection
 - **Three output formats** — JSONL (pipes), JSON (APIs), human-readable (terminals)
@@ -423,19 +423,28 @@ This creates `.atlas/index.json` in your repository root.
 
 **Incremental updates:** When you re-run `atlas index --deep`, only files whose SHA-256 has changed get re-indexed. Unchanged files carry forward from the existing index. File processing runs in parallel across all available cores via `rayon`.
 
-**Supported languages for chunking:**
+**Supported languages for chunking (tree-sitter primary, regex fallback):**
 
 | Language | Functions | Types | Imports | Impls |
 |----------|-----------|-------|---------|-------|
 | Rust | `fn` | `struct`, `enum`, `trait`, `type` | `use` | `impl` |
 | Go | `func` | `type` | `import` | — |
 | Python | `def`, `async def` | `class` | `import`, `from` | — |
-| JavaScript | `function`, arrow | `class` | `import` | — |
-| TypeScript | `function`, arrow | `class`, `interface`, `type`, `enum` | `import` | — |
-| Java | methods | `class`, `interface`, `enum`, `record` | `import` | — |
+| JavaScript | `function` | `class` | `import` | — |
+| TypeScript | `function` | `class`, `interface`, `type`, `enum` | `import` | — |
+| Java | methods | `class`, `interface`, `enum` | `import` | — |
 | Ruby | `def` | `class`, `module` | `require` | — |
 | C | functions | `struct`, `enum`, `union`, `typedef` | `#include` | — |
 | C++ | functions | `class`, `struct`, `enum`, `namespace` | `#include` | — |
+| Shell | functions | — | — | — |
+| Swift | `func` | `class`, `struct`, `enum`, `protocol` | `import` | — |
+| Kotlin | `fun` | `class`, `object` | `import` | — |
+| Scala | `def` | `class`, `trait`, `object` | `import` | — |
+| Haskell | functions | `data`, `newtype`, `type`, `class` | `import` | — |
+| Elixir | `def` | — | — | — |
+| Lua | `function` | — | — | — |
+| PHP | functions | `class`, `interface`, `trait`, `enum` | `use` | — |
+| R | functions | — | — | — |
 
 <p align="right">(<a href="#atlas">back to top</a>)</p>
 
@@ -462,7 +471,7 @@ Benchmarked on Apple Silicon (M-series, release build).
 | Query (cached index) | **2.7 s** | 335 MB |
 | End-to-end `quick` | **16.3 s** | — |
 
-Deep indexing processes **27,827 source files** across all 9 supported languages in under 5 seconds — leveraging `rayon` for parallel file I/O and chunking. The generated index is 260 MB for the full Kubernetes codebase.
+Deep indexing processes **27,827 source files** across all 18 supported languages in under 5 seconds — leveraging `rayon` for parallel file I/O and chunking. The generated index is 260 MB for the full Kubernetes codebase.
 
 Scoring and rendering are negligible — the bottleneck is file I/O.
 
@@ -512,7 +521,7 @@ Atlas is a Cargo workspace with 7 focused crates:
 | `atlas-index` | Deep index builder, JSON serialization, incremental merge |
 | `atlas-score` | BM25F, heuristic, hybrid, PageRank, git recency, RRF fusion |
 | `atlas-render` | JSONL v0.3, JSON, human-readable output |
-| `atlas-treesit` | Code chunking (regex-based, tree-sitter planned) |
+| `atlas-treesit` | Code chunking (tree-sitter AST with regex fallback) |
 | `atlas-cli` | clap CLI, presets, commands |
 
 ### Built with
@@ -520,6 +529,7 @@ Atlas is a Cargo workspace with 7 focused crates:
 - [Rust](https://www.rust-lang.org) (2024 edition)
 - [`clap`](https://docs.rs/clap) — CLI parsing
 - [`ignore`](https://docs.rs/ignore) — Gitignore-respecting file walking (from ripgrep)
+- [`tree-sitter`](https://docs.rs/tree-sitter) — AST-based code chunking (18 language grammars)
 - [`rayon`](https://docs.rs/rayon) — Parallel file processing
 - [`serde`](https://docs.rs/serde) + [`serde_json`](https://docs.rs/serde_json) — Serialization
 - [`sha2`](https://docs.rs/sha2) — Content hashing

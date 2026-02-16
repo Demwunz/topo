@@ -40,6 +40,14 @@ pub enum Language {
     Json,
     Html,
     Css,
+    Swift,
+    Kotlin,
+    Scala,
+    Haskell,
+    Elixir,
+    Lua,
+    Php,
+    R,
     Other,
 }
 
@@ -62,6 +70,14 @@ impl Language {
             "json" => Self::Json,
             "html" | "htm" => Self::Html,
             "css" | "scss" | "sass" | "less" => Self::Css,
+            "swift" => Self::Swift,
+            "kt" | "kts" => Self::Kotlin,
+            "scala" | "sc" => Self::Scala,
+            "hs" => Self::Haskell,
+            "ex" | "exs" => Self::Elixir,
+            "lua" => Self::Lua,
+            "php" => Self::Php,
+            "r" | "R" => Self::R,
             _ => Self::Other,
         }
     }
@@ -92,6 +108,14 @@ impl Language {
             Self::Json => "json",
             Self::Html => "html",
             Self::Css => "css",
+            Self::Swift => "swift",
+            Self::Kotlin => "kotlin",
+            Self::Scala => "scala",
+            Self::Haskell => "haskell",
+            Self::Elixir => "elixir",
+            Self::Lua => "lua",
+            Self::Php => "php",
+            Self::R => "r",
             Self::Other => "other",
         }
     }
@@ -111,6 +135,14 @@ impl Language {
                 | Self::C
                 | Self::Cpp
                 | Self::Shell
+                | Self::Swift
+                | Self::Kotlin
+                | Self::Scala
+                | Self::Haskell
+                | Self::Elixir
+                | Self::Lua
+                | Self::Php
+                | Self::R
         )
     }
 }

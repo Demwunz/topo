@@ -10,7 +10,8 @@ pub fn run(cli: &Cli) -> Result<()> {
         "formats": ["jsonl", "json", "human"],
         "languages": [
             "rust", "go", "python", "javascript", "typescript",
-            "java", "ruby", "c", "cpp"
+            "java", "ruby", "c", "cpp", "shell", "swift", "kotlin",
+            "scala", "haskell", "elixir", "lua", "php", "r"
         ],
         "scoring": ["heuristic", "content", "hybrid"],
         "presets": ["fast", "balanced", "deep", "thorough"],
@@ -22,7 +23,9 @@ pub fn run(cli: &Cli) -> Result<()> {
             println!();
             println!("Commands:  index, query, quick, render, explain, describe");
             println!("Formats:   jsonl, json, human");
-            println!("Languages: rust, go, python, javascript, typescript, java, ruby, c, cpp");
+            println!(
+                "Languages: rust, go, python, javascript, typescript, java, ruby, c, cpp, shell, swift, kotlin, scala, haskell, elixir, lua, php, r"
+            );
             println!("Scoring:   heuristic, content, hybrid");
             println!("Presets:   fast, balanced, deep, thorough");
         }
