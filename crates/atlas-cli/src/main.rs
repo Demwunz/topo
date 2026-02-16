@@ -136,6 +136,9 @@ pub enum Command {
 
     /// Print machine-readable tool capabilities
     Describe,
+
+    /// Start MCP (Model Context Protocol) server on stdio
+    Mcp,
 }
 
 impl Cli {
@@ -214,6 +217,9 @@ fn main() -> Result<()> {
         }
         Some(Command::Describe) => {
             commands::describe::run(&cli)?;
+        }
+        Some(Command::Mcp) => {
+            commands::mcp::run(&cli)?;
         }
         None => {
             // No subcommand: print version info

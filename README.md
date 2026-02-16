@@ -339,6 +339,25 @@ atlas describe --format json
 
 <p align="right">(<a href="#atlas">back to top</a>)</p>
 
+### `mcp` — MCP server for AI editors
+
+Starts an [MCP](https://modelcontextprotocol.io/) server on stdio. Exposes `atlas_query`, `atlas_explain`, and `atlas_index` as tools.
+
+Add to your MCP client config (Claude Desktop, Cursor, Cline, etc.):
+
+```json
+{
+  "mcpServers": {
+    "atlas": {
+      "command": "atlas",
+      "args": ["--root", "/path/to/project", "mcp"]
+    }
+  }
+}
+```
+
+<p align="right">(<a href="#atlas">back to top</a>)</p>
+
 ---
 
 ## Presets
