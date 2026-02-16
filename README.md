@@ -21,11 +21,11 @@
 
 ## The Problem
 
-LLMs need context to be useful. But most codebases are too large to fit in a prompt.
+LLMs are only as good as the context you give them. But codebases have thousands of files — and you can't paste them all into a prompt.
 
-You end up manually selecting files, guessing what's relevant, and hoping you didn't miss something important. Too little context and the LLM hallucinates. Too much and it loses focus.
+So you guess. You manually pick files, hope you didn't miss a critical dependency, and wonder why the LLM still hallucinates. Too little context and it makes things up. Too much and it loses the plot.
 
-**Topo fixes this.** One command. Indexes your repo, scores every file against your task, outputs exactly what the LLM needs — within your token budget.
+**Topo fixes this.** One command indexes your repo, scores every file against your task, and outputs exactly what the LLM needs — within your token budget. Kubernetes-sized repos (28k files) index in under 4 seconds. Small repos finish in milliseconds.
 
 ### Who is this for?
 
@@ -39,13 +39,12 @@ You end up manually selecting files, guessing what's relevant, and hoping you di
 
 ## How Topo Helps
 
-- **Automatic file selection** — no manual cherry-picking
-- **Multi-signal scoring** — BM25F text search, heuristics, import graphs, git history, all fused with RRF
-- **Any file, any language** — indexes every file in your repo; regex chunking for fast indexing across 18 languages, tree-sitter available for on-demand enrichment
-- **Token budgets** — `--max-bytes`, `--max-tokens`, `--min-score` for precise context control
-- **Incremental indexing** — only re-processes changed files via SHA-256 change detection
-- **Three output formats** — JSONL (pipes), JSON (APIs), human-readable (terminals)
-- **Zero dependencies** — single static binary, no runtime deps
+- ⚡ **Fast** — 50 files in 1ms, 28k files in under 4 seconds. Incremental updates skip unchanged files via SHA-256, so re-indexes are near-instant
+- 🎯 **Accurate** — multi-signal scoring fuses BM25F text search, heuristics, import graphs, and git history with Reciprocal Rank Fusion. No single signal decides alone
+- 🌍 **Polyglot** — indexes every file in your repo across 18 languages, with regex chunking for speed and tree-sitter available for deep enrichment
+- 🎛️ **Precise budgets** — `--max-bytes`, `--max-tokens`, `--min-score`, `--top` give you exact control over what goes into the context window
+- 📦 **Zero dependencies** — single static binary, no runtime, no config. Download and run
+- 🔌 **Three output formats** — JSONL for pipes, JSON for APIs, human-readable for terminals. Auto-detects TTY
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
