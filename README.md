@@ -7,7 +7,7 @@
 [![Rust](https://img.shields.io/badge/Rust-2024_edition-000000?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/demwunz/atlas/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/demwunz/atlas/actions)
 [![MIT License](https://img.shields.io/github/license/demwunz/atlas?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-225_passing-brightgreen?style=for-the-badge)](#)
+[![Tests](https://img.shields.io/badge/tests-266_passing-brightgreen?style=for-the-badge)](#)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue?style=for-the-badge)](#-installation)
 
 ![Atlas demo](vhs/hero.gif)

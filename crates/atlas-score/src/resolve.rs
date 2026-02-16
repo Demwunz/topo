@@ -92,6 +92,11 @@ pub fn resolve_import(
         }
         Language::Ruby => resolve_ruby(raw_import, importing_file, &file_index.stem),
         Language::Swift => resolve_swift(raw_import, &file_index.stem),
+        Language::Elixir => resolve_elixir(raw_import, &file_index.stem),
+        Language::Php => resolve_php(raw_import, importing_file, &file_index.stem),
+        Language::Scala => resolve_scala(raw_import, &file_index.stem),
+        Language::R => resolve_r(raw_import, importing_file, &file_index.stem),
+        Language::Shell => resolve_shell(raw_import, importing_file, &file_index.stem),
         _ => Vec::new(),
     };
 
@@ -393,6 +398,139 @@ fn resolve_swift(module: &str, file_index: &HashMap<String, Vec<String>>) -> Vec
         .unwrap_or_default()
 }
 
+/// Elixir: match last module segment against file stems.
+///
+/// `MyApp.Auth.Handler` → try "Handler", then "Auth".
+fn resolve_elixir(module_path: &str, file_index: &HashMap<String, Vec<String>>) -> Vec<String> {
+    // Elixir modules are like MyApp.Auth.Handler — try last segment first
+    for segment in module_path.rsplit('.') {
+        let candidates = file_index
+            .get(&segment.to_lowercase())
+            .cloned()
+            .unwrap_or_default();
+        if !candidates.is_empty() {
+            return candidates;
+        }
+    }
+    Vec::new()
+}
+
+/// PHP: resolve `use` namespaces and `require`/`include` paths.
+fn resolve_php(
+    import_path: &str,
+    importing_file: &str,
+    file_index: &HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    if import_path.contains('\\') {
+        // Namespace import: App\Auth\Handler → match last segment "Handler"
+        let segment = import_path.rsplit('\\').next().unwrap_or(import_path);
+        file_index
+            .get(&segment.to_lowercase())
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        // File path: resolve relative to importing file, fall back to stem
+        let base = Path::new(importing_file).parent().unwrap_or(Path::new(""));
+        let resolved = base.join(import_path);
+        let resolved_str = resolved.to_string_lossy();
+
+        for files in file_index.values() {
+            for f in files {
+                if f == resolved_str.as_ref() {
+                    return vec![f.clone()];
+                }
+            }
+        }
+
+        let stem = Path::new(import_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        file_index
+            .get(&stem.to_lowercase())
+            .cloned()
+            .unwrap_or_default()
+    }
+}
+
+/// Scala: match last segment of import path against file stems.
+///
+/// `com.example.auth.Handler` → match "Handler".
+fn resolve_scala(import_path: &str, file_index: &HashMap<String, Vec<String>>) -> Vec<String> {
+    let segment = import_path.rsplit('.').next().unwrap_or(import_path);
+    file_index
+        .get(&segment.to_lowercase())
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// R: resolve `source()` paths relative to importing file, `library()`/`require()` by stem.
+fn resolve_r(
+    import_path: &str,
+    importing_file: &str,
+    file_index: &HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    // If it looks like a file path (has extension or slash), resolve as path
+    if import_path.contains('/') || import_path.contains('.') {
+        let base = Path::new(importing_file).parent().unwrap_or(Path::new(""));
+        let resolved = base.join(import_path);
+        let resolved_str = resolved.to_string_lossy();
+
+        for files in file_index.values() {
+            for f in files {
+                if f == resolved_str.as_ref() {
+                    return vec![f.clone()];
+                }
+            }
+        }
+
+        let stem = Path::new(import_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        file_index
+            .get(&stem.to_lowercase())
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        // Package name from library()/require() — match against stems
+        file_index
+            .get(&import_path.to_lowercase())
+            .cloned()
+            .unwrap_or_default()
+    }
+}
+
+/// Shell: resolve `source`/`.` paths relative to importing file.
+fn resolve_shell(
+    import_path: &str,
+    importing_file: &str,
+    file_index: &HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    let base = Path::new(importing_file).parent().unwrap_or(Path::new(""));
+    let resolved = base.join(import_path);
+    let resolved_str = resolved.to_string_lossy();
+
+    // Try exact path match
+    for files in file_index.values() {
+        for f in files {
+            if f == resolved_str.as_ref() {
+                return vec![f.clone()];
+            }
+        }
+    }
+
+    // Fall back to stem matching
+    let stem = Path::new(import_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    file_index
+        .get(&stem.to_lowercase())
+        .cloned()
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -641,6 +779,65 @@ mod tests {
             &idx,
         );
         assert!(result.contains(&"src/main/kotlin/AuthService.kt".to_string()));
+    }
+
+    #[test]
+    fn resolve_elixir_module() {
+        let paths = vec!["lib/auth/handler.ex", "lib/utils.ex"];
+        let idx = build_file_index(&paths);
+
+        let result = resolve_import("MyApp.Auth.Handler", "lib/app.ex", Language::Elixir, &idx);
+        assert!(result.contains(&"lib/auth/handler.ex".to_string()));
+    }
+
+    #[test]
+    fn resolve_php_namespace() {
+        let paths = vec!["src/Auth/Handler.php", "src/App.php"];
+        let idx = build_file_index(&paths);
+
+        let result = resolve_import(r"App\Auth\Handler", "src/App.php", Language::Php, &idx);
+        assert!(result.contains(&"src/Auth/Handler.php".to_string()));
+    }
+
+    #[test]
+    fn resolve_php_require() {
+        let paths = vec!["src/config.php", "src/main.php"];
+        let idx = build_file_index(&paths);
+
+        let result = resolve_import("config.php", "src/main.php", Language::Php, &idx);
+        assert!(result.contains(&"src/config.php".to_string()));
+    }
+
+    #[test]
+    fn resolve_scala_import() {
+        let paths = vec!["src/main/scala/Handler.scala"];
+        let idx = build_file_index(&paths);
+
+        let result = resolve_import(
+            "com.example.auth.Handler",
+            "src/main/scala/App.scala",
+            Language::Scala,
+            &idx,
+        );
+        assert!(result.contains(&"src/main/scala/Handler.scala".to_string()));
+    }
+
+    #[test]
+    fn resolve_r_source() {
+        let paths = vec!["R/utils.R", "R/main.R"];
+        let idx = build_file_index(&paths);
+
+        let result = resolve_import("utils.R", "R/main.R", Language::R, &idx);
+        assert!(result.contains(&"R/utils.R".to_string()));
+    }
+
+    #[test]
+    fn resolve_shell_source() {
+        let paths = vec!["lib/utils.sh", "bin/run.sh"];
+        let idx = build_file_index(&paths);
+
+        let result = resolve_import("../lib/utils.sh", "bin/run.sh", Language::Shell, &idx);
+        assert!(result.contains(&"lib/utils.sh".to_string()));
     }
 
     #[test]

@@ -165,6 +165,11 @@ pub fn extract_imports(content: &str, language: atlas_core::Language) -> Vec<Str
         atlas_core::Language::C | atlas_core::Language::Cpp => extract_c_includes(content),
         atlas_core::Language::Ruby => extract_ruby_imports(content),
         atlas_core::Language::Swift => extract_swift_imports(content),
+        atlas_core::Language::Elixir => extract_elixir_imports(content),
+        atlas_core::Language::Php => extract_php_imports(content),
+        atlas_core::Language::Scala => extract_scala_imports(content),
+        atlas_core::Language::R => extract_r_imports(content),
+        atlas_core::Language::Shell => extract_shell_imports(content),
         _ => Vec::new(),
     }
 }
@@ -329,6 +334,128 @@ fn extract_swift_imports(content: &str) -> Vec<String> {
                 // Extract module name from qualified path (e.g., "CoreData.NSManagedObject" → "CoreData")
                 let module_name = module.split('.').next().unwrap_or(module);
                 imports.push(module_name.to_string());
+            }
+        }
+    }
+    imports
+}
+
+fn extract_elixir_imports(content: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // alias MyApp.Auth.Handler
+        // import Enum
+        // use GenServer
+        // require Logger
+        for prefix in ["alias ", "import ", "use ", "require "] {
+            if let Some(rest) = trimmed.strip_prefix(prefix) {
+                // Take the module path (stop at comma, do-block, or comma)
+                let module = rest.split([',', '{', ' ']).next().unwrap_or("");
+                if !module.is_empty() && module.starts_with(|c: char| c.is_uppercase()) {
+                    imports.push(module.to_string());
+                }
+            }
+        }
+    }
+    imports
+}
+
+fn extract_php_imports(content: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // use App\Auth\Handler;
+        // use App\Auth\Handler as AuthHandler;
+        // require_once 'file.php';
+        // include 'file.php';
+        if let Some(rest) = trimmed.strip_prefix("use ") {
+            let path = rest.split([';', ' ']).next().unwrap_or("");
+            if !path.is_empty() && path.contains('\\') {
+                imports.push(path.to_string());
+            }
+        } else {
+            for prefix in ["require ", "require_once ", "include ", "include_once "] {
+                if let Some(rest) = trimmed.strip_prefix(prefix) {
+                    let path = rest
+                        .trim()
+                        .trim_end_matches(';')
+                        .trim()
+                        .trim_matches(|c| c == '\'' || c == '"');
+                    if !path.is_empty() {
+                        imports.push(path.to_string());
+                    }
+                }
+            }
+        }
+    }
+    imports
+}
+
+fn extract_scala_imports(content: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // import scala.collection.mutable.Map
+        // import com.example.{Foo, Bar}
+        if let Some(rest) = trimmed.strip_prefix("import ") {
+            let path = rest
+                .split(['{', ' '])
+                .next()
+                .unwrap_or("")
+                .trim_end_matches('.');
+            if !path.is_empty() {
+                imports.push(path.to_string());
+            }
+        }
+    }
+    imports
+}
+
+fn extract_r_imports(content: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // library(dplyr)
+        // require(ggplot2)
+        // source("utils.R")
+        for prefix in ["library(", "require("] {
+            if let Some(rest) = trimmed.strip_prefix(prefix) {
+                let pkg = rest
+                    .trim_end_matches(')')
+                    .trim_matches(|c| c == '\'' || c == '"');
+                if !pkg.is_empty() {
+                    imports.push(pkg.to_string());
+                }
+            }
+        }
+        if let Some(rest) = trimmed.strip_prefix("source(") {
+            let path = rest
+                .trim_end_matches(')')
+                .trim_matches(|c| c == '\'' || c == '"');
+            if !path.is_empty() {
+                imports.push(path.to_string());
+            }
+        }
+    }
+    imports
+}
+
+fn extract_shell_imports(content: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // source ./lib/utils.sh
+        // . ./helpers.sh
+        // source "$DIR/config.sh"
+        if let Some(rest) = trimmed
+            .strip_prefix("source ")
+            .or_else(|| trimmed.strip_prefix(". "))
+        {
+            let path = rest.trim().trim_matches('"').trim_matches('\'');
+            // Skip variable-only sources like "$CONFIG" without a real path
+            if !path.is_empty() && !path.starts_with('$') {
+                imports.push(path.to_string());
             }
         }
     }
@@ -598,6 +725,86 @@ import java.util.List
         assert!(imports.contains(&"com.example.auth.AuthService".to_string()));
         assert!(imports.contains(&"kotlinx.coroutines.launch".to_string()));
         assert!(imports.contains(&"java.util.List".to_string()));
+    }
+
+    #[test]
+    fn extract_elixir_imports_basic() {
+        let code = r#"
+alias MyApp.Auth.Handler
+import Enum
+use GenServer
+require Logger
+"#;
+        let imports = extract_imports(code, atlas_core::Language::Elixir);
+        assert!(imports.contains(&"MyApp.Auth.Handler".to_string()));
+        assert!(imports.contains(&"Enum".to_string()));
+        assert!(imports.contains(&"GenServer".to_string()));
+        assert!(imports.contains(&"Logger".to_string()));
+    }
+
+    #[test]
+    fn extract_elixir_skips_lowercase() {
+        // Elixir: `use :crypto` or `require :logger` are atoms, not modules
+        let code = "use :crypto\nimport :timer\n";
+        let imports = extract_imports(code, atlas_core::Language::Elixir);
+        assert!(imports.is_empty());
+    }
+
+    #[test]
+    fn extract_php_imports_basic() {
+        let code = r#"
+use App\Auth\Handler;
+use App\Utils\Helpers as H;
+require_once 'config.php';
+include 'helpers/utils.php';
+"#;
+        let imports = extract_imports(code, atlas_core::Language::Php);
+        assert!(imports.contains(&r"App\Auth\Handler".to_string()));
+        assert!(imports.contains(&r"App\Utils\Helpers".to_string()));
+        assert!(imports.contains(&"config.php".to_string()));
+        assert!(imports.contains(&"helpers/utils.php".to_string()));
+    }
+
+    #[test]
+    fn extract_scala_imports_basic() {
+        let code = r#"
+import scala.collection.mutable.Map
+import com.example.auth.Handler
+import com.example.{Foo, Bar}
+"#;
+        let imports = extract_imports(code, atlas_core::Language::Scala);
+        assert!(imports.contains(&"scala.collection.mutable.Map".to_string()));
+        assert!(imports.contains(&"com.example.auth.Handler".to_string()));
+        assert!(imports.contains(&"com.example".to_string()));
+    }
+
+    #[test]
+    fn extract_r_imports_basic() {
+        let code = r#"
+library(dplyr)
+require(ggplot2)
+source("utils.R")
+source('helpers/clean.R')
+"#;
+        let imports = extract_imports(code, atlas_core::Language::R);
+        assert!(imports.contains(&"dplyr".to_string()));
+        assert!(imports.contains(&"ggplot2".to_string()));
+        assert!(imports.contains(&"utils.R".to_string()));
+        assert!(imports.contains(&"helpers/clean.R".to_string()));
+    }
+
+    #[test]
+    fn extract_shell_imports_basic() {
+        let code = r#"
+source ./lib/utils.sh
+. ./helpers.sh
+source "$DIR/config.sh"
+"#;
+        let imports = extract_imports(code, atlas_core::Language::Shell);
+        assert!(imports.contains(&"./lib/utils.sh".to_string()));
+        assert!(imports.contains(&"./helpers.sh".to_string()));
+        // "$DIR/config.sh" starts with $ so it's skipped
+        assert!(!imports.iter().any(|i| i.contains("config")));
     }
 
     #[test]
