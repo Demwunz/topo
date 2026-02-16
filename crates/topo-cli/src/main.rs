@@ -139,6 +139,13 @@ pub enum Command {
 
     /// Start MCP (Model Context Protocol) server on stdio
     Mcp,
+
+    /// Set up AI assistant instruction files (AGENTS.md, Cursor rules, Copilot instructions)
+    Init {
+        /// Overwrite existing files
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 impl Cli {
@@ -220,6 +227,9 @@ fn main() -> Result<()> {
         }
         Some(Command::Mcp) => {
             commands::mcp::run(&cli)?;
+        }
+        Some(Command::Init { force }) => {
+            commands::init::run(&cli, force)?;
         }
         None => {
             // No subcommand: print version info

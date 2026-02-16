@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
   <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
 
-[Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Commands](#commands) · [Scoring](#scoring-engine) · [Installation](#installation)
+[Quickstart](#quickstart) · [MCP Server](#mcp-server) · [AI Setup](#ai-assistant-setup) · [Commands](#commands) · [Scoring](#scoring-engine) · [Installation](#installation)
 
 ![Topo demo](vhs/hero.gif)
 
@@ -117,6 +117,30 @@ Use Topo as an [MCP](https://modelcontextprotocol.io/) server in Claude Desktop,
   }
 }
 ```
+
+<p align="right">(<a href="#topo">back to top</a>)</p>
+
+---
+
+## AI Assistant Setup
+
+Make every AI coding assistant use Topo for file discovery with one command:
+
+```bash
+topo init
+```
+
+This creates instruction files that tell AI assistants to prefer `topo_query` over grep/find/glob:
+
+| File | Purpose |
+|------|---------|
+| `AGENTS.md` | Cross-tool instructions (Codex, Claude Code, Jules, Cursor) |
+| `.cursor/rules/topo.md` | Cursor-specific rules (auto-applied) |
+| `.github/copilot-instructions.md` | GitHub Copilot instructions (if `.github/` exists) |
+
+Existing files are not overwritten. Use `topo init --force` to replace them.
+
+For best results, combine with the MCP server config above — `topo init` provides the instructions, MCP provides the tools.
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 

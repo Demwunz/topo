@@ -245,7 +245,7 @@ impl TopoServer {
 
     #[tool(
         name = "topo_query",
-        description = "Search a codebase and return the most relevant files for a task. Auto-indexes if needed. Returns scored file paths with token counts."
+        description = "Find the most relevant files for a task. Use this as your first step for file discovery instead of grep/find/glob. Auto-indexes if needed. Returns scored file paths with token counts."
     )]
     async fn topo_query(
         &self,
@@ -322,9 +322,11 @@ impl ServerHandler for TopoServer {
                 website_url: Some("https://github.com/demwunz/topo".into()),
             },
             instructions: Some(
-                "Topo indexes codebases and selects the most relevant files for LLM context windows. \
-                 Use topo_query to find files relevant to a task, topo_explain to understand scoring, \
-                 and topo_index to build or update the index."
+                "Topo is this project's primary file discovery tool. \
+                 ALWAYS use topo_query as your first step when you need to find files relevant to a task. \
+                 It is faster and more accurate than grep, find, or glob for file-level discovery. \
+                 Use topo_query to find relevant files, then grep/find for line-level search within those files. \
+                 topo_query auto-indexes on first use."
                     .to_string(),
             ),
         }
