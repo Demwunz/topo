@@ -4,41 +4,39 @@
 
 **Smart file selection for LLMs. One command to go from codebase to context.**
 
-[![Rust](https://img.shields.io/badge/Rust-2024_edition-000000?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
-[![CI](https://img.shields.io/github/actions/workflow/status/demwunz/atlas/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/demwunz/atlas/actions)
-[![MIT License](https://img.shields.io/github/license/demwunz/atlas?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-266_passing-brightgreen?style=for-the-badge)](#)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue?style=for-the-badge)](#-installation)
-
-![Atlas demo](vhs/hero.gif)
-
-[Quickstart](#-quickstart) · [Commands](#-commands) · [Scoring](#-scoring-engine) · [Installation](#-installation) · [Docs](docs/)
-
-</div>
-
----
+  <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/CLI-000000?style=flat-square&logo=windowsterminal&logoColor=white" alt="CLI" />
+  <img src="https://img.shields.io/badge/MCP-191919?style=flat-square&logo=anthropic&logoColor=white" alt="MCP" />
+  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" />
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
 
 <details>
 <summary>Table of Contents</summary>
 
-- [The Problem](#-the-problem)
-- [How Atlas Helps](#-how-atlas-helps)
-- [Quickstart](#-quickstart)
-- [Installation](#-installation)
-- [Workflow](#-core-workflow)
-- [Commands](#-commands)
-- [Presets](#-presets)
-- [Scoring Engine](#-scoring-engine)
-- [Output Formats](#-output-formats)
-- [Deep Indexing](#-deep-indexing)
-- [Performance](#-performance)
-- [Architecture](#-architecture)
-- [Configuration Reference](#-configuration-reference)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [The Problem](#the-problem)
+- [How Atlas Helps](#how-atlas-helps)
+- [Quickstart](#quickstart)
+- [Installation](#installation)
+- [MCP Server](#mcp-server)
+- [Core Workflow](#core-workflow)
+- [Commands](#commands)
+- [Presets](#presets)
+- [Scoring Engine](#scoring-engine)
+- [Output Formats](#output-formats)
+- [Deep Indexing](#deep-indexing)
+- [Performance](#performance)
+- [Architecture](#architecture)
+- [Configuration Reference](#configuration-reference)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
+- [License](#license)
 
 </details>
+
+![Atlas demo](vhs/hero.gif)
+
+</div>
 
 ---
 
