@@ -10,9 +10,9 @@
   <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" />
   <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
 
-![Atlas demo](vhs/hero.gif)
-
 [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Commands](#commands) · [Scoring](#scoring-engine) · [Installation](#installation)
+
+![Atlas demo](vhs/hero.gif)
 
 </div>
 
