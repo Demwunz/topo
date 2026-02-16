@@ -33,8 +33,11 @@ pub fn load(repo_root: &Path) -> anyhow::Result<Option<DeepIndex>> {
     }
 
     let bytes = fs::read(&path)?;
-    let index = rkyv::from_bytes::<DeepIndex, rkyv::rancor::Error>(&bytes)
-        .map_err(|e| anyhow::anyhow!("rkyv deserialize: {e}"))?;
+    let index = match rkyv::from_bytes::<DeepIndex, rkyv::rancor::Error>(&bytes) {
+        Ok(idx) if idx.version >= 2 => idx,
+        // Old version or deserialization failure — force rebuild
+        _ => return Ok(None),
+    };
     Ok(Some(index))
 }
 
@@ -86,6 +89,8 @@ pub fn merge_incremental(existing: &DeepIndex, fresh: &DeepIndex) -> DeepIndex {
         avg_doc_length,
         total_docs,
         doc_frequencies,
+        // PageRank is recomputed globally, always take from fresh index
+        pagerank_scores: fresh.pagerank_scores.clone(),
     }
 }
 
@@ -123,7 +128,7 @@ mod tests {
         save(&index, dir.path()).unwrap();
         let loaded = load(dir.path()).unwrap().unwrap();
 
-        assert_eq!(loaded.version, index.version);
+        assert_eq!(loaded.version, 2);
         assert_eq!(loaded.total_docs, index.total_docs);
         assert!(loaded.files.contains_key("main.rs"));
         assert_eq!(
@@ -143,11 +148,12 @@ mod tests {
     fn save_creates_atlas_dir() {
         let dir = tempfile::tempdir().unwrap();
         let index = DeepIndex {
-            version: 1,
+            version: 2,
             files: HashMap::new(),
             avg_doc_length: 0.0,
             total_docs: 0,
             doc_frequencies: HashMap::new(),
+            pagerank_scores: HashMap::new(),
         };
 
         save(&index, dir.path()).unwrap();
@@ -169,10 +175,12 @@ mod tests {
         let loaded = load(dir.path()).unwrap().unwrap();
 
         let entry = &loaded.files["auth.rs"];
-        assert!(entry
-            .chunks
-            .iter()
-            .any(|c| c.kind == ChunkKind::Function && c.name == "authenticate"));
+        assert!(
+            entry
+                .chunks
+                .iter()
+                .any(|c| c.kind == ChunkKind::Function && c.name == "authenticate")
+        );
     }
 
     #[test]
@@ -228,11 +236,12 @@ mod tests {
         fs::write(atlas_dir.join("index.json"), b"{}").unwrap();
 
         let index = DeepIndex {
-            version: 1,
+            version: 2,
             files: HashMap::new(),
             avg_doc_length: 0.0,
             total_docs: 0,
             doc_frequencies: HashMap::new(),
+            pagerank_scores: HashMap::new(),
         };
 
         save(&index, dir.path()).unwrap();

@@ -101,6 +101,7 @@ dependencies = [
  "anyhow",
  "atlas-core",
  "atlas-scanner",
+ "atlas-score",
  "atlas-treesit",
  "rayon",
  "rkyv",

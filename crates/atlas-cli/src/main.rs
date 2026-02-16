@@ -125,6 +125,10 @@ pub enum Command {
         /// Return top N files
         #[arg(long, default_value = "10")]
         top: usize,
+
+        /// Scoring preset
+        #[arg(long, value_enum, default_value = "balanced")]
+        preset: preset::Preset,
     },
 
     /// Inspect the index (file count, size, stats)
@@ -198,8 +202,12 @@ fn main() -> Result<()> {
         }) => {
             commands::render::run(&cli, file, max_tokens)?;
         }
-        Some(Command::Explain { ref task, top }) => {
-            commands::explain::run(&cli, task, top)?;
+        Some(Command::Explain {
+            ref task,
+            top,
+            preset,
+        }) => {
+            commands::explain::run(&cli, task, top, preset)?;
         }
         Some(Command::Inspect) => {
             commands::inspect::run(&cli)?;
@@ -294,7 +302,7 @@ mod tests {
     fn cli_parses_explain() {
         let cli = Cli::try_parse_from(["atlas", "explain", "auth", "--top", "5"]).unwrap();
         match cli.command {
-            Some(Command::Explain { ref task, top }) => {
+            Some(Command::Explain { ref task, top, .. }) => {
                 assert_eq!(task, "auth");
                 assert_eq!(top, 5);
             }

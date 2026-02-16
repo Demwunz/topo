@@ -161,6 +161,7 @@ pub fn extract_imports(content: &str, language: atlas_core::Language) -> Vec<Str
             extract_js_imports(content)
         }
         atlas_core::Language::Go => extract_go_imports(content),
+        atlas_core::Language::Java => extract_java_imports(content),
         _ => Vec::new(),
     }
 }
@@ -234,6 +235,22 @@ fn extract_js_imports(content: &str) -> Vec<String> {
                 .split(['\'', '"'])
                 .next()
                 .unwrap_or("");
+            if !path.is_empty() {
+                imports.push(path.to_string());
+            }
+        }
+    }
+    imports
+}
+
+fn extract_java_imports(content: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("import ") {
+            // Skip static imports' "static " prefix
+            let rest = rest.strip_prefix("static ").unwrap_or(rest);
+            let path = rest.trim_end_matches(';').trim();
             if !path.is_empty() {
                 imports.push(path.to_string());
             }
@@ -418,6 +435,19 @@ import (
         let imports = extract_imports(code, atlas_core::Language::Go);
         assert!(imports.contains(&"fmt".to_string()));
         assert!(imports.contains(&"net/http".to_string()));
+    }
+
+    #[test]
+    fn extract_java_imports_basic() {
+        let code = r#"
+import com.example.auth.AuthService;
+import java.util.List;
+import static org.junit.Assert.assertEquals;
+"#;
+        let imports = extract_imports(code, atlas_core::Language::Java);
+        assert!(imports.contains(&"com.example.auth.AuthService".to_string()));
+        assert!(imports.contains(&"java.util.List".to_string()));
+        assert!(imports.contains(&"org.junit.Assert.assertEquals".to_string()));
     }
 
     #[test]

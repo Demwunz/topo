@@ -1,10 +1,10 @@
 use crate::preset::Preset;
 use crate::{Cli, OutputFormat};
 use anyhow::Result;
-use atlas_core::{ScoredFile, TokenBudget};
+use atlas_core::{DeepIndex, ScoredFile, TokenBudget};
 use atlas_render::JsonlWriter;
 use atlas_scanner::BundleBuilder;
-use atlas_score::HybridScorer;
+use atlas_score::{HybridScorer, RrfFusion};
 
 pub fn run(
     cli: &Cli,
@@ -20,8 +20,15 @@ pub fn run(
     // Scan files
     let bundle = BundleBuilder::new(&root).build()?;
 
+    // Load deep index for PageRank when using structural signals
+    let deep_index = if preset.use_structural_signals() {
+        atlas_index::load(&root)?
+    } else {
+        None
+    };
+
     // Score files
-    let scored = score_files(task, &bundle.files, preset);
+    let scored = score_files(task, &bundle.files, preset, deep_index.as_ref());
 
     // Apply score filter
     let effective_min_score = min_score.unwrap_or(preset.default_min_score());
@@ -57,9 +64,41 @@ pub fn run(
     Ok(())
 }
 
-pub fn score_files(task: &str, files: &[atlas_core::FileInfo], _preset: Preset) -> Vec<ScoredFile> {
+pub fn score_files(
+    task: &str,
+    files: &[atlas_core::FileInfo],
+    _preset: Preset,
+    deep_index: Option<&DeepIndex>,
+) -> Vec<ScoredFile> {
     let scorer = HybridScorer::new(task);
-    scorer.score(files)
+    let mut scored = scorer.score(files);
+
+    // Apply PageRank via RRF fusion when available
+    if let Some(index) = deep_index
+        && !index.pagerank_scores.is_empty()
+    {
+        // Populate SignalBreakdown.pagerank for each scored file
+        for file in &mut scored {
+            file.signals.pagerank = index.pagerank_scores.get(&file.path).copied();
+        }
+
+        // Build PageRank-sorted ranking (owned strings to avoid borrow conflict)
+        let mut pr_ranked: Vec<(String, f64)> = scored
+            .iter()
+            .filter_map(|f| f.signals.pagerank.map(|pr| (f.path.clone(), pr)))
+            .collect();
+        pr_ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        let pr_ranking: Vec<&str> = pr_ranked.iter().map(|(p, _)| p.as_str()).collect();
+
+        // Fuse base ranking with PageRank ranking via RRF
+        if !pr_ranking.is_empty() {
+            let fusion = RrfFusion::new();
+            fusion.fuse_scored(&mut scored, &[pr_ranking]);
+        }
+    }
+
+    scored
 }
 
 pub fn output_results(

@@ -5,6 +5,7 @@ mod fusion;
 mod git_recency;
 mod heuristic;
 mod pagerank;
+mod resolve;
 mod tokenizer;
 
 pub mod hybrid;
@@ -15,6 +16,7 @@ pub use git_recency::{file_recency, git_recency_scores};
 pub use heuristic::HeuristicScorer;
 pub use hybrid::HybridScorer;
 pub use pagerank::{ImportGraph, extract_imports};
+pub use resolve::build_import_graph;
 pub use tokenizer::Tokenizer;
 
 #[cfg(test)]

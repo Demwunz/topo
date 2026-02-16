@@ -10,6 +10,7 @@ repository.workspace = true
 [dependencies]
 atlas-core = { workspace = true }
 atlas-scanner = { workspace = true }
+atlas-score = { workspace = true }
 atlas-treesit = { workspace = true }
 rkyv = { workspace = true }
 sha2 = { workspace = true }

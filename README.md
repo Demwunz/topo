@@ -7,7 +7,7 @@
 [![Rust](https://img.shields.io/badge/Rust-2024_edition-000000?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/demwunz/atlas/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/demwunz/atlas/actions)
 [![MIT License](https://img.shields.io/github/license/demwunz/atlas?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-212_passing-brightgreen?style=for-the-badge)](#)
+[![Tests](https://img.shields.io/badge/tests-225_passing-brightgreen?style=for-the-badge)](#)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue?style=for-the-badge)](#-installation)
 
 ![Atlas demo](vhs/hero.gif)
@@ -262,28 +262,32 @@ Shows a table of selected files with their scores and signal breakdown.
 
 ```bash
 atlas explain "auth middleware" --top 10
+atlas explain "auth middleware" --preset deep --top 10  # includes PageRank
 ```
 
 ![explain output](vhs/render.gif)
 
-Example output:
+Example output (with `--preset deep`):
 
 ```
 Score breakdown for query: "auth middleware"
 Showing top 10 of 186 files
 
-PATH                                               TOTAL    BM25F     HEUR     ROLE
---------------------------------------------------------------------------------------
-src/auth/middleware.rs                             0.9500   0.8200   0.7100     impl
-src/auth/handler.rs                               0.8700   0.6300   0.6800     impl
-src/auth/mod.rs                                   0.7200   0.5100   0.5500     impl
+PATH                                                  TOTAL    BM25F     HEUR       PR     ROLE
+-----------------------------------------------------------------------------------------------
+src/auth/middleware.rs                               0.9500   0.8200   0.7100   0.8340     impl
+src/auth/handler.rs                                  0.8700   0.6300   0.6800   0.6210     impl
+src/auth/mod.rs                                      0.7200   0.5100   0.5500   0.5080     impl
 ...
 ```
+
+The `PR` column shows normalized PageRank scores (0–1) when using `deep` or `thorough` presets, or `-` otherwise.
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `task` | *(required)* | Task description |
 | `--top` | `10` | Number of files to show |
+| `--preset` | `balanced` | Scoring preset (`deep`/`thorough` enable PageRank) |
 
 ### `inspect` — Index statistics
 
@@ -299,7 +303,7 @@ Example output:
 Index: .atlas/index.bin
 Format: rkyv binary
 Size: 144.0 MB (150994944 bytes)
-Version: 1
+Version: 2
 Files: 28358
 Chunks: 142891
 Unique terms: 89412
@@ -345,8 +349,8 @@ Presets configure index depth, scoring strategy, and budget in one flag.
 |--------|-------|---------|-----------|-----------|----------|
 | `fast` | Shallow | Heuristic only | 50 KB | 0.05 | Quick lookups |
 | `balanced` | Deep (cached) | BM25F + heuristic | 100 KB | 0.01 | **Default — recommended** |
-| `deep` | Deep (fresh) | BM25F + structural | 200 KB | 0.005 | Thorough analysis |
-| `thorough` | Deep + all signals | Everything | 500 KB | 0.001 | Maximum relevance |
+| `deep` | Deep (fresh) | BM25F + heuristic + PageRank (RRF) | 200 KB | 0.005 | Thorough analysis |
+| `thorough` | Deep + all signals | BM25F + heuristic + PageRank + git recency (RRF) | 500 KB | 0.001 | Maximum relevance |
 
 Explicit flags override preset values:
 
@@ -368,17 +372,18 @@ Atlas combines multiple signals using Reciprocal Rank Fusion (RRF) to produce a 
 |--------|--------|-------------|
 | **BM25F** | 60% | Field-weighted text relevance (filename 5x, symbols 3x, body 1x) |
 | **Heuristic** | 40% | Path keywords, file role, depth penalty, well-known paths, file size |
-| **Import graph** | structural | PageRank over import/require relationships |
+| **Import graph** | RRF fusion | PageRank over import/require relationships (6 languages: Rust, Python, JS, TS, Go, Java) |
 | **Git recency** | structural | Commit frequency per file (90-day lookback) |
 | **File role** | classification | Boosts impl, penalizes generated/vendor |
 
 ### How it works
 
 1. **Scan** — Walk the repo respecting `.gitignore`, classify language and role
-2. **Score** — BM25F content matching + heuristic path analysis, blended 60/40
-3. **Fuse** — Optional structural signals (PageRank, git recency) combined via RRF
-4. **Budget** — Enforce `--max-bytes` / `--max-tokens`, greedily including top files
-5. **Output** — Render as JSONL, JSON, or human-readable table
+2. **Index** — Extract imports and compute PageRank scores at index time (stored in `.atlas/index.bin`, zero query-time cost)
+3. **Score** — BM25F content matching + heuristic path analysis, blended 60/40
+4. **Fuse** — Structural signals (PageRank, git recency) combined with base ranking via RRF (`deep`/`thorough` presets)
+5. **Budget** — Enforce `--max-bytes` / `--max-tokens`, greedily including top files
+6. **Output** — Render as JSONL, JSON, or human-readable table
 
 ### File roles
 
@@ -436,10 +441,11 @@ When stdout is not a TTY, Atlas automatically switches to JSONL output and suppr
 
 ## Deep Indexing
 
-A deep index adds two capabilities on top of the shallow scan:
+A deep index adds three capabilities on top of the shallow scan:
 
 - **AST chunks** — Function, type, impl, and import declarations extracted per file with names and line ranges
 - **Term frequencies** — Pre-computed word counts across filename, symbols, and body fields for BM25F scoring
+- **PageRank scores** — Import graph built from source-level `import`/`use`/`require` statements, resolved to repo files via fuzzy file-stem matching, then scored with PageRank. Files imported by many others rank higher. Computed at index time for zero query-time cost.
 
 Build one with:
 

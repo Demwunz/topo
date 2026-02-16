@@ -392,6 +392,8 @@ pub struct DeepIndex {
     pub avg_doc_length: f64,
     pub total_docs: u32,
     pub doc_frequencies: std::collections::HashMap<String, u32>,
+    /// Normalized PageRank scores per file path (0.0–1.0).
+    pub pagerank_scores: std::collections::HashMap<String, f64>,
 }
 
 /// Per-file entry in the deep index.
@@ -404,7 +406,9 @@ pub struct FileEntry {
 }
 
 /// A code chunk extracted by tree-sitter or regex fallback.
-#[derive(Debug, Clone, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
+)]
 pub struct Chunk {
     pub kind: ChunkKind,
     pub name: String,
@@ -414,7 +418,19 @@ pub struct Chunk {
 }
 
 /// The kind of code chunk.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub enum ChunkKind {
     Function,
     Type,

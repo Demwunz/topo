@@ -1,4 +1,4 @@
-use atlas_core::{ChunkKind, DeepIndex, FileEntry, FileInfo, TermFreqs};
+use atlas_core::{ChunkKind, DeepIndex, FileEntry, FileInfo, Language, TermFreqs};
 use atlas_treesit::{Chunker, RegexChunker};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -30,8 +30,8 @@ impl<'a> IndexBuilder<'a> {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let reindexed = AtomicUsize::new(0);
 
-        // Process files in parallel, skipping unchanged files
-        let entries: Vec<(String, FileEntry)> = files
+        // Process files in parallel, collecting entries and raw imports
+        let results: Vec<(String, FileEntry, Language, Vec<String>)> = files
             .par_iter()
             .filter_map(|info| {
                 // Skip unchanged files — carry forward existing entry
@@ -39,18 +39,44 @@ impl<'a> IndexBuilder<'a> {
                     && let Some(old_entry) = existing.files.get(&info.path)
                     && old_entry.sha256 == info.sha256
                 {
-                    return Some((info.path.clone(), old_entry.clone()));
+                    // Still need to read content for import extraction
+                    let full_path = self.root.join(&info.path);
+                    let imports = if info.language.is_programming_language() {
+                        fs::read_to_string(&full_path)
+                            .map(|c| atlas_score::extract_imports(&c, info.language))
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    return Some((info.path.clone(), old_entry.clone(), info.language, imports));
                 }
 
                 let full_path = self.root.join(&info.path);
                 let content = fs::read_to_string(&full_path).ok()?;
                 let entry = build_file_entry(info, &content);
+                let imports = if info.language.is_programming_language() {
+                    atlas_score::extract_imports(&content, info.language)
+                } else {
+                    Vec::new()
+                };
                 reindexed.fetch_add(1, Ordering::Relaxed);
-                Some((info.path.clone(), entry))
+                Some((info.path.clone(), entry, info.language, imports))
             })
             .collect();
 
         let reindexed_count = reindexed.load(Ordering::Relaxed);
+
+        // Split into entries and imports
+        let mut entries: Vec<(String, FileEntry)> = Vec::with_capacity(results.len());
+        let mut file_imports: Vec<(String, Language, Vec<String>)> =
+            Vec::with_capacity(results.len());
+
+        for (path, entry, lang, imports) in results {
+            if !imports.is_empty() {
+                file_imports.push((path.clone(), lang, imports));
+            }
+            entries.push((path, entry));
+        }
 
         // Compute corpus-level stats
         let total_docs = entries.len() as u32;
@@ -69,15 +95,21 @@ impl<'a> IndexBuilder<'a> {
             }
         }
 
+        // Build import graph and compute PageRank
+        let all_paths: Vec<&str> = entries.iter().map(|(p, _)| p.as_str()).collect();
+        let graph = atlas_score::build_import_graph(&file_imports, &all_paths);
+        let pagerank_scores = graph.normalized_pagerank();
+
         let file_map: HashMap<String, FileEntry> = entries.into_iter().collect();
 
         Ok((
             DeepIndex {
-                version: 1,
+                version: 2,
                 files: file_map,
                 avg_doc_length,
                 total_docs,
                 doc_frequencies,
+                pagerank_scores,
             },
             reindexed_count,
         ))
