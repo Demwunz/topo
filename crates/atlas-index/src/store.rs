@@ -39,6 +39,7 @@ struct StoredChunk {
     name: String,
     start_line: u32,
     end_line: u32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     content: String,
 }
 

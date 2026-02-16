@@ -1,5 +1,5 @@
 use atlas_core::{ChunkKind, DeepIndex, FileEntry, FileInfo, TermFreqs};
-use atlas_treesit::{Chunker, default_chunker};
+use atlas_treesit::{Chunker, RegexChunker};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
@@ -74,8 +74,8 @@ fn build_file_entry(info: &FileInfo, content: &str) -> FileEntry {
         term_frequencies.entry(token.clone()).or_default().body += 1;
     }
 
-    // Extract chunks via tree-sitter (with regex fallback for unsupported languages)
-    let chunks = default_chunker().chunk(content, info.language);
+    // Extract chunks via regex (fast indexing pass)
+    let chunks = RegexChunker.chunk(content, info.language);
 
     // Tokenize chunk names for symbols field
     for chunk in &chunks {
@@ -345,7 +345,7 @@ pub trait Handler {
     fn handle(&self);
 }
 "#;
-        let chunker = default_chunker();
+        let chunker = RegexChunker;
         let chunks = chunker.chunk(content, Language::Rust);
         let kinds: Vec<ChunkKind> = chunks.iter().map(|c| c.kind).collect();
 
@@ -354,14 +354,10 @@ pub trait Handler {
         assert!(kinds.contains(&ChunkKind::Impl));
         assert!(kinds.contains(&ChunkKind::Function));
 
-        // Tree-sitter should give multi-line spans for types
-        let config = chunks
-            .iter()
-            .find(|c| c.name == "Config" && c.kind == ChunkKind::Type)
-            .unwrap();
         assert!(
-            config.end_line > config.start_line,
-            "struct should span multiple lines"
+            chunks
+                .iter()
+                .any(|c| c.name == "Config" && c.kind == ChunkKind::Type)
         );
     }
 
@@ -375,7 +371,7 @@ class UserService:
 async def fetch_data(url):
     pass
 "#;
-        let chunker = default_chunker();
+        let chunker = RegexChunker;
         let chunks = chunker.chunk(content, Language::Python);
         assert!(chunks.iter().any(|c| c.name == "UserService"));
         assert!(chunks.iter().any(|c| c.name == "authenticate"));
@@ -395,7 +391,7 @@ type Config struct {
     Name string
 }
 "#;
-        let chunker = default_chunker();
+        let chunker = RegexChunker;
         let chunks = chunker.chunk(content, Language::Go);
         assert!(chunks.iter().any(|c| c.name == "main"));
         assert!(chunks.iter().any(|c| c.name == "Config"));

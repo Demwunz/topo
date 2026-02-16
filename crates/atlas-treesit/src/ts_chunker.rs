@@ -49,9 +49,6 @@ impl Chunker for TreeSitterChunker {
         let mut chunks = Vec::new();
 
         while let Some(m) = matches.next() {
-            // Determine kind and extract nodes from captures.
-            // Each match has captures like [@name, @function] or [@name, @type], etc.
-            // We look at which outer capture is present to determine the ChunkKind.
             let mut outer_node = None;
             let mut name_node = None;
             let mut kind = ChunkKind::Other;
@@ -84,9 +81,11 @@ impl Chunker for TreeSitterChunker {
                 .unwrap_or("")
                 .to_string();
 
-            let start_line = node.start_position().row as u32 + 1; // 0-indexed → 1-indexed
+            let start_line = node.start_position().row as u32 + 1;
             let end_line = node.end_position().row as u32 + 1;
-            let node_content = node.utf8_text(content.as_bytes()).unwrap_or("").to_string();
+            // Content not populated — BM25F only uses chunk.name for scoring.
+            // Skipping utf8_text() avoids ~27K string allocations on large repos.
+            let node_content = String::new();
 
             chunks.push(Chunk {
                 kind,
@@ -217,10 +216,8 @@ use std::collections::HashMap;
             auth.end_line > auth.start_line,
             "function should span multiple lines"
         );
-        assert!(
-            auth.content.contains("is_empty"),
-            "content should include function body"
-        );
+        // Content is intentionally empty (not used by scoring pipeline)
+        assert!(auth.content.is_empty(), "content should be empty");
 
         let type_chunks: Vec<_> = chunks
             .iter()

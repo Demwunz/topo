@@ -31,9 +31,12 @@ impl Chunker for CompositeChunker {
     }
 }
 
-/// Create the default chunker (tree-sitter with regex fallback).
-pub fn default_chunker() -> CompositeChunker {
-    CompositeChunker
+/// Create the default chunker (regex-based, fast indexing).
+///
+/// Tree-sitter chunkers (`TreeSitterChunker`, `CompositeChunker`) remain
+/// available for on-demand enrichment of selected files.
+pub fn default_chunker() -> RegexChunker {
+    RegexChunker
 }
 
 #[cfg(test)]

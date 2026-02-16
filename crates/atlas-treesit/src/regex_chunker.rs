@@ -44,7 +44,7 @@ impl Chunker for RegexChunker {
                     name,
                     start_line: line_num,
                     end_line: line_num,
-                    content: trimmed.to_string(),
+                    content: String::new(),
                 });
             }
         }
