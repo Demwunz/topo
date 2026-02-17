@@ -56,11 +56,14 @@ A typical workaround is chaining grep and glob queries, guessing at naming conve
 # Install
 brew install demwunz/tap/topo
 
+# Set up your AI assistants
+topo init
+
 # Get context for your task
 topo quick "add health check endpoint"
 ```
 
-That's it. Topo indexes your repo, scores every file against your task, and outputs exactly the context an LLM needs.
+`topo init` creates instruction files that teach your AI assistants to use Topo for file discovery. `topo quick` indexes your repo, scores every file against your task, and outputs exactly the context an LLM needs.
 
 ![topo quick demo](vhs/quick.gif)
 
