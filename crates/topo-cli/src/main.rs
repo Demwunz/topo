@@ -40,6 +40,7 @@ pub enum OutputFormat {
     Json,
     Jsonl,
     Human,
+    Compact,
 }
 
 #[derive(Debug, Subcommand)]
@@ -145,7 +146,14 @@ pub enum Command {
         /// Overwrite existing files
         #[arg(long)]
         force: bool,
+
+        /// Install Claude Code hooks for automatic context injection (default: true)
+        #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
+        hooks: bool,
     },
+
+    /// Show context savings from topo hook usage
+    Gain,
 }
 
 impl Cli {
@@ -161,7 +169,17 @@ impl Cli {
     }
 
     /// Determine the effective output format.
+    ///
+    /// When `HOOK_EVENT_NAME` env var is set (Claude Code hooks), auto-select
+    /// `Compact` format for minimal-token output.
     pub fn effective_format(&self) -> OutputFormat {
+        // Hook environment auto-selects compact unless explicitly overridden
+        if matches!(self.format, OutputFormat::Auto)
+            && std::env::var_os("HOOK_EVENT_NAME").is_some()
+        {
+            return OutputFormat::Compact;
+        }
+
         match self.format {
             OutputFormat::Auto => {
                 if std::io::stdout().is_terminal() {
@@ -228,8 +246,11 @@ fn main() -> Result<()> {
         Some(Command::Mcp) => {
             commands::mcp::run(&cli)?;
         }
-        Some(Command::Init { force }) => {
-            commands::init::run(&cli, force)?;
+        Some(Command::Init { force, hooks }) => {
+            commands::init::run(&cli, force, hooks)?;
+        }
+        Some(Command::Gain) => {
+            commands::gain::run(&cli)?;
         }
         None => {
             // No subcommand: print version info
@@ -342,6 +363,41 @@ mod tests {
     fn cli_parses_root() {
         let cli = Cli::try_parse_from(["topo", "--root", "/tmp/myrepo"]).unwrap();
         assert_eq!(cli.root, Some(PathBuf::from("/tmp/myrepo")));
+    }
+
+    #[test]
+    fn cli_parses_init_default_hooks() {
+        let cli = Cli::try_parse_from(["topo", "init"]).unwrap();
+        match cli.command {
+            Some(Command::Init { force, hooks }) => {
+                assert!(!force);
+                assert!(hooks); // hooks default to true
+            }
+            _ => panic!("expected Init"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_init_no_hooks() {
+        let cli = Cli::try_parse_from(["topo", "init", "--hooks", "false"]).unwrap();
+        match cli.command {
+            Some(Command::Init { hooks, .. }) => {
+                assert!(!hooks);
+            }
+            _ => panic!("expected Init"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_gain() {
+        let cli = Cli::try_parse_from(["topo", "gain"]).unwrap();
+        assert!(matches!(cli.command, Some(Command::Gain)));
+    }
+
+    #[test]
+    fn cli_parses_format_compact() {
+        let cli = Cli::try_parse_from(["topo", "--format", "compact"]).unwrap();
+        assert!(matches!(cli.format, OutputFormat::Compact));
     }
 
     #[test]

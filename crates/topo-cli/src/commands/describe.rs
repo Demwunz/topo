@@ -6,8 +6,8 @@ pub fn run(cli: &Cli) -> Result<()> {
         "name": "topo",
         "version": env!("CARGO_PKG_VERSION"),
         "replaces": "repo-context",
-        "commands": ["index", "query", "quick", "render", "explain", "inspect", "describe", "mcp"],
-        "formats": ["jsonl", "json", "human"],
+        "commands": ["index", "query", "quick", "render", "explain", "inspect", "describe", "mcp", "init", "gain"],
+        "formats": ["jsonl", "json", "human", "compact"],
         "languages": [
             "rust", "go", "python", "javascript", "typescript",
             "java", "ruby", "c", "cpp", "shell", "swift", "kotlin",

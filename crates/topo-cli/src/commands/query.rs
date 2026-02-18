@@ -2,7 +2,7 @@ use crate::preset::Preset;
 use crate::{Cli, OutputFormat};
 use anyhow::Result;
 use topo_core::{DeepIndex, ScoredFile, TokenBudget};
-use topo_render::JsonlWriter;
+use topo_render::{CompactWriter, JsonlWriter};
 use topo_scanner::BundleBuilder;
 use topo_score::{HybridScorer, RrfFusion};
 
@@ -134,6 +134,10 @@ pub fn output_results(
                 "scanned_files": scanned_count,
             });
             println!("{}", serde_json::to_string_pretty(&json_output)?);
+        }
+        OutputFormat::Compact => {
+            let output = CompactWriter::new().render(files);
+            print!("{output}");
         }
         OutputFormat::Human => {
             if !files.is_empty() {

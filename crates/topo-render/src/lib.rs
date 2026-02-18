@@ -1,7 +1,9 @@
-//! JSONL v0.3, JSON, and human-readable output rendering.
+//! JSONL v0.3, JSON, compact, and human-readable output rendering.
 
+mod compact;
 mod jsonl;
 
+pub use compact::CompactWriter;
 pub use jsonl::JsonlWriter;
 
 #[cfg(test)]

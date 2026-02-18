@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
   <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
 
-[Quickstart](#quickstart) · [MCP Server](#mcp-server) · [AI Setup](#ai-assistant-setup) · [Commands](#commands) · [Scoring](#scoring-engine) · [Installation](#installation)
+[Quickstart](#quickstart) · [MCP Server](#mcp-server) · [AI Setup](#ai-assistant-setup) · [Hooks](#claude-code-hooks) · [Commands](#commands) · [Scoring](#scoring-engine) · [Installation](#installation)
 
 ![Topo demo](vhs/hero.gif)
 
@@ -44,7 +44,7 @@ A typical workaround is chaining grep and glob queries, guessing at naming conve
 - 🌍 **Polyglot** — indexes every file in your repo across 18 languages, with regex chunking for speed and tree-sitter available for deep enrichment
 - 🎛️ **Precise budgets** — `--max-bytes`, `--max-tokens`, `--min-score`, `--top` give you exact control over what goes into the context window
 - 📦 **Zero dependencies** — single static binary, no runtime, no config. Download and run
-- 🔌 **Three output formats** — JSONL for pipes, JSON for APIs, human-readable for terminals. Auto-detects TTY
+- 🔌 **Four output formats** — JSONL for pipes, JSON for APIs, compact for hooks, human-readable for terminals. Auto-detects context
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
@@ -133,7 +133,7 @@ Make every AI coding assistant use Topo for file discovery with one command:
 topo init
 ```
 
-This creates instruction files that tell AI assistants to run `topo quick` via shell before grep/find/glob. It also checks that `topo` is on your PATH so assistants can actually call it:
+This creates instruction files that tell AI assistants to run `topo quick` via shell before grep/find/glob, and installs [Claude Code hooks](#claude-code-hooks) for automatic context injection. It also checks that `topo` is on your PATH so assistants can actually call it:
 
 | File | Purpose |
 |------|---------|
@@ -141,10 +141,32 @@ This creates instruction files that tell AI assistants to run `topo quick` via s
 | `CLAUDE.md` | Injects a topo-managed section (preserves your existing content) |
 | `.cursor/rules/topo.md` | Cursor-specific rules (auto-applied) |
 | `.github/copilot-instructions.md` | GitHub Copilot instructions (if `.github/` exists) |
+| `.claude/hooks/topo-context.sh` | Claude Code hook: injects file suggestions on prompt submit |
+| `.claude/hooks/topo-hint.sh` | Claude Code hook: hints when Glob/Grep are used |
+| `.claude/hooks/topo-track.sh` | Claude Code hook: tracks file reads for `topo gain` |
+| `.claude/settings.json` | Hook registration (merged into existing settings) |
 
 Existing files are not overwritten. Use `topo init --force` to replace them. `CLAUDE.md` is special — it injects a marked section rather than overwriting, so your project instructions are preserved.
 
+To skip hook installation: `topo init --hooks false`.
+
 For tools without shell access, combine with the [MCP server](#mcp-server) config above.
+
+<p align="right">(<a href="#topo">back to top</a>)</p>
+
+---
+
+## Claude Code Hooks
+
+When hooks are installed (default with `topo init`), Topo works automatically — no manual commands needed:
+
+**`UserPromptSubmit` — automatic context injection.** When you submit a prompt, Topo reads it, runs `topo quick` with the fast preset, and returns the top 10 relevant files as additional context. Claude sees the right files before it starts working. Short prompts (<15 chars) are skipped to avoid noise on commands like `/help`.
+
+**`PreToolUse` on Glob/Grep — discovery hints.** When Claude is about to search for files with Glob or Grep, Topo injects a lightweight hint with the top 5 files matching the search pattern. This doesn't block the tool call — it adds context.
+
+**`PostToolUse` on Read — usage tracking.** When Claude reads a file, Topo logs it to `.topo/stats.jsonl` for the [`topo gain`](#gain--context-savings) analytics command.
+
+All hooks are additive — they inject `additionalContext` and never block tool calls. The `UserPromptSubmit` hook uses `--preset fast` to keep latency under 2 seconds.
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
@@ -209,7 +231,7 @@ topo quick "update API" --max-tokens 8000
 | `--max-tokens` | none | Token budget |
 | `--min-score` | from preset | Minimum score threshold |
 | `--top` | none | Maximum number of files |
-| `--format` | `auto` | Output: `auto`, `json`, `jsonl`, `human` |
+| `--format` | `auto` | Output: `auto`, `json`, `jsonl`, `human`, `compact` |
 | `--root` | `.` | Repository path |
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
@@ -340,6 +362,41 @@ Files by extension:
   ...
 ```
 
+### `init` — Set up AI assistants
+
+Creates instruction files and installs Claude Code hooks. See [AI Assistant Setup](#ai-assistant-setup).
+
+```bash
+topo init              # Create files + install hooks
+topo init --force      # Overwrite existing files
+topo init --hooks false  # Skip hook installation
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Overwrite existing files |
+| `--hooks` | `true` | Install Claude Code hooks |
+
+### `gain` — Context savings
+
+Shows how much context Topo has saved across Claude Code sessions. Reads tracking data from `.topo/stats.jsonl` written by the hooks.
+
+```bash
+topo gain
+```
+
+Example output:
+
+```
+Topo context savings:
+  Sessions:         12
+  Suggestions:      47
+  Files suggested:  156
+  Files opened:     89
+  Tokens suggested: 847000
+  Avg files/query:  3.3
+```
+
 ### `describe` — Machine-readable capabilities
 
 Outputs a JSON description of Topo's capabilities for agent discovery.
@@ -406,7 +463,7 @@ Topo combines multiple signals using Reciprocal Rank Fusion (RRF) to produce a s
 3. **Score** — BM25F content matching + heuristic path analysis, blended 60/40
 4. **Fuse** — Structural signals (PageRank, git recency) combined with base ranking via RRF (`deep`/`thorough` presets)
 5. **Budget** — Enforce `--max-bytes` / `--max-tokens`, greedily including top files
-6. **Output** — Render as JSONL, JSON, or human-readable table
+6. **Output** — Render as JSONL, JSON, compact, or human-readable table
 
 ### File roles
 
@@ -454,9 +511,21 @@ topo query "auth" --format human
 
 Produces a formatted table. Auto-selected when stdout is a terminal.
 
+### Compact (for hooks)
+
+Minimal single-line-per-file format, designed for hook injection with minimal token overhead:
+
+```
+src/auth.rs (impl, 2494tok, 7.01)
+src/commands/init.rs (impl, 2635tok, 6.92)
+README.md (docs, 128tok, 6.54)
+```
+
+Auto-selected when `HOOK_EVENT_NAME` environment variable is set (Claude Code hooks set this). Use `--format compact` to select manually.
+
 ### Pipe detection
 
-When stdout is not a TTY, Topo automatically switches to JSONL output and suppresses progress messages. Override with `--format`.
+When stdout is not a TTY, Topo automatically switches to JSONL output and suppresses progress messages. When running inside a Claude Code hook, Topo auto-selects compact format. Override with `--format`.
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
@@ -583,7 +652,7 @@ Topo is a Cargo workspace with 7 focused crates:
 | `topo-scanner` | File walking, gitignore, SHA-256 hashing |
 | `topo-index` | Deep index builder, rkyv serialization, incremental merge |
 | `topo-score` | BM25F, heuristic, hybrid, PageRank, git recency, RRF fusion |
-| `topo-render` | JSONL v0.3, JSON, human-readable output |
+| `topo-render` | JSONL v0.3, JSON, compact, human-readable output |
 | `topo-treesit` | Code chunking (regex for indexing, tree-sitter for enrichment) |
 | `topo-cli` | clap CLI, presets, commands |
 
@@ -608,7 +677,7 @@ Topo is a Cargo workspace with 7 focused crates:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--root <path>` | `.` | Repository root (or set `TOPO_ROOT`) |
-| `--format <fmt>` | `auto` | Output format: `auto`, `json`, `jsonl`, `human` |
+| `--format <fmt>` | `auto` | Output format: `auto`, `json`, `jsonl`, `human`, `compact` |
 | `--no-color` | `false` | Disable color output |
 | `-v` | `0` | Increase log verbosity (repeat for more) |
 | `-q, --quiet` | `false` | Suppress non-essential output |
@@ -618,6 +687,7 @@ Topo is a Cargo workspace with 7 focused crates:
 | Variable | Description |
 |----------|-------------|
 | `TOPO_ROOT` | Default repository root path |
+| `HOOK_EVENT_NAME` | Set by Claude Code hooks — auto-selects `compact` output format |
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 

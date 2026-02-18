@@ -7,6 +7,9 @@ const AGENTS_MD: &str = include_str!("../../templates/AGENTS.md");
 const CURSOR_TOPO_MD: &str = include_str!("../../templates/cursor-topo.md");
 const COPILOT_INSTRUCTIONS_MD: &str = include_str!("../../templates/copilot-instructions.md");
 const CLAUDE_MD_SECTION: &str = include_str!("../../templates/claude-md-section.md");
+const TOPO_CONTEXT_SH: &str = include_str!("../../templates/topo-context.sh");
+const TOPO_HINT_SH: &str = include_str!("../../templates/topo-hint.sh");
+const TOPO_TRACK_SH: &str = include_str!("../../templates/topo-track.sh");
 
 enum WriteResult {
     Created,
@@ -71,15 +74,99 @@ fn inject_claude_md(path: &Path, section: &str, force: bool) -> Result<WriteResu
     Ok(WriteResult::Created)
 }
 
+/// Write a hook script, creating parent dirs and setting executable permissions.
+fn write_hook(path: &Path, content: &str, force: bool) -> Result<WriteResult> {
+    if path.exists() && !force {
+        return Ok(WriteResult::Skipped);
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, content)?;
+
+    // Set executable permission on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = fs::Permissions::from_mode(0o755);
+        fs::set_permissions(path, perms)?;
+    }
+
+    Ok(WriteResult::Created)
+}
+
+/// Patch `.claude/settings.json` to register topo hooks.
+/// Merges hook entries into existing settings without destroying user config.
+fn patch_claude_settings(root: &Path, force: bool) -> Result<WriteResult> {
+    let settings_path = root.join(".claude/settings.json");
+    let mut settings: serde_json::Value = if settings_path.exists() {
+        let content = fs::read_to_string(&settings_path)?;
+        serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Check if hooks are already configured
+    if !force
+        && let Some(hooks) = settings.get("hooks")
+        && (hooks.get("UserPromptSubmit").is_some() || hooks.get("PreToolUse").is_some())
+    {
+        return Ok(WriteResult::Skipped);
+    }
+
+    // Build the hook configuration
+    let topo_hooks = serde_json::json!({
+        "UserPromptSubmit": [{
+            "hooks": [{
+                "type": "command",
+                "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/topo-context.sh",
+                "timeout": 15
+            }]
+        }],
+        "PreToolUse": [{
+            "matcher": "Glob|Grep",
+            "hooks": [{
+                "type": "command",
+                "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/topo-hint.sh",
+                "timeout": 10
+            }]
+        }],
+        "PostToolUse": [{
+            "matcher": "Read",
+            "hooks": [{
+                "type": "command",
+                "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/topo-track.sh",
+                "timeout": 5
+            }]
+        }]
+    });
+
+    // Merge into existing settings
+    if let Some(existing_hooks) = settings.get_mut("hooks") {
+        if let Some(obj) = existing_hooks.as_object_mut() {
+            for (key, value) in topo_hooks.as_object().unwrap() {
+                obj.insert(key.clone(), value.clone());
+            }
+        }
+    } else {
+        settings["hooks"] = topo_hooks;
+    }
+
+    // Write back
+    if let Some(parent) = settings_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let formatted = serde_json::to_string_pretty(&settings)?;
+    fs::write(&settings_path, formatted + "\n")?;
+
+    Ok(WriteResult::Created)
+}
+
 fn check_topo_on_path() {
     let cmd = if cfg!(windows) {
-        std::process::Command::new("where.exe")
-            .arg("topo")
-            .output()
+        std::process::Command::new("where.exe").arg("topo").output()
     } else {
-        std::process::Command::new("which")
-            .arg("topo")
-            .output()
+        std::process::Command::new("which").arg("topo").output()
     };
 
     match cmd {
@@ -109,7 +196,7 @@ fn check_topo_on_path() {
     println!("See https://github.com/demwunz/topo#mcp for setup instructions.");
 }
 
-pub fn run(cli: &Cli, force: bool) -> Result<()> {
+pub fn run(cli: &Cli, force: bool, hooks: bool) -> Result<()> {
     let root = cli.repo_root()?;
     let quiet = cli.is_quiet();
 
@@ -177,7 +264,81 @@ pub fn run(cli: &Cli, force: bool) -> Result<()> {
         }
         WriteResult::Skipped => {
             if !quiet {
-                println!("  Skipped CLAUDE.md (topo section already present, use --force to update)");
+                println!(
+                    "  Skipped CLAUDE.md (topo section already present, use --force to update)"
+                );
+            }
+        }
+    }
+
+    // Claude Code hooks (--hooks, on by default)
+    if hooks {
+        if !quiet {
+            println!();
+            println!("Claude Code hooks:");
+        }
+
+        let hooks_dir = root.join(".claude/hooks");
+        let context_path = hooks_dir.join("topo-context.sh");
+        match write_hook(&context_path, TOPO_CONTEXT_SH, force)? {
+            WriteResult::Created => {
+                if !quiet {
+                    println!("  Created .claude/hooks/topo-context.sh");
+                }
+            }
+            WriteResult::Skipped => {
+                if !quiet {
+                    println!(
+                        "  Skipped .claude/hooks/topo-context.sh (already exists, use --force to overwrite)"
+                    );
+                }
+            }
+        }
+
+        let hint_path = hooks_dir.join("topo-hint.sh");
+        match write_hook(&hint_path, TOPO_HINT_SH, force)? {
+            WriteResult::Created => {
+                if !quiet {
+                    println!("  Created .claude/hooks/topo-hint.sh");
+                }
+            }
+            WriteResult::Skipped => {
+                if !quiet {
+                    println!(
+                        "  Skipped .claude/hooks/topo-hint.sh (already exists, use --force to overwrite)"
+                    );
+                }
+            }
+        }
+
+        let track_path = hooks_dir.join("topo-track.sh");
+        match write_hook(&track_path, TOPO_TRACK_SH, force)? {
+            WriteResult::Created => {
+                if !quiet {
+                    println!("  Created .claude/hooks/topo-track.sh");
+                }
+            }
+            WriteResult::Skipped => {
+                if !quiet {
+                    println!(
+                        "  Skipped .claude/hooks/topo-track.sh (already exists, use --force to overwrite)"
+                    );
+                }
+            }
+        }
+
+        match patch_claude_settings(&root, force)? {
+            WriteResult::Created => {
+                if !quiet {
+                    println!("  Patched .claude/settings.json (hook registration)");
+                }
+            }
+            WriteResult::Skipped => {
+                if !quiet {
+                    println!(
+                        "  Skipped .claude/settings.json (hooks already registered, use --force to update)"
+                    );
+                }
             }
         }
     }
@@ -200,6 +361,78 @@ mod tests {
         assert!(!AGENTS_MD.is_empty());
         assert!(!CURSOR_TOPO_MD.is_empty());
         assert!(!COPILOT_INSTRUCTIONS_MD.is_empty());
+        assert!(!TOPO_CONTEXT_SH.is_empty());
+        assert!(!TOPO_HINT_SH.is_empty());
+        assert!(!TOPO_TRACK_SH.is_empty());
+    }
+
+    #[test]
+    fn hook_templates_are_valid_bash() {
+        assert!(TOPO_CONTEXT_SH.starts_with("#!/usr/bin/env bash"));
+        assert!(TOPO_HINT_SH.starts_with("#!/usr/bin/env bash"));
+        assert!(TOPO_TRACK_SH.starts_with("#!/usr/bin/env bash"));
+    }
+
+    #[test]
+    fn write_hook_creates_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("hooks/test.sh");
+        let result = write_hook(&path, "#!/bin/bash\necho hi", false).unwrap();
+        assert!(matches!(result, WriteResult::Created));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "#!/bin/bash\necho hi");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_hook_sets_executable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test.sh");
+        write_hook(&path, "#!/bin/bash", false).unwrap();
+        let perms = fs::metadata(&path).unwrap().permissions();
+        assert_eq!(perms.mode() & 0o111, 0o111); // executable bits set
+    }
+
+    #[test]
+    fn patch_claude_settings_creates_new() {
+        let dir = tempdir().unwrap();
+        let result = patch_claude_settings(dir.path(), false).unwrap();
+        assert!(matches!(result, WriteResult::Created));
+        let content = fs::read_to_string(dir.path().join(".claude/settings.json")).unwrap();
+        let settings: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert!(settings["hooks"]["UserPromptSubmit"].is_array());
+        assert!(settings["hooks"]["PreToolUse"].is_array());
+        assert!(settings["hooks"]["PostToolUse"].is_array());
+    }
+
+    #[test]
+    fn patch_claude_settings_merges_existing() {
+        let dir = tempdir().unwrap();
+        let settings_dir = dir.path().join(".claude");
+        fs::create_dir_all(&settings_dir).unwrap();
+        fs::write(
+            settings_dir.join("settings.json"),
+            r#"{"allowedTools": ["bash"]}"#,
+        )
+        .unwrap();
+        let result = patch_claude_settings(dir.path(), false).unwrap();
+        assert!(matches!(result, WriteResult::Created));
+        let content = fs::read_to_string(settings_dir.join("settings.json")).unwrap();
+        let settings: serde_json::Value = serde_json::from_str(&content).unwrap();
+        // Preserved existing config
+        assert_eq!(settings["allowedTools"][0], "bash");
+        // Added hooks
+        assert!(settings["hooks"]["UserPromptSubmit"].is_array());
+    }
+
+    #[test]
+    fn patch_claude_settings_skips_when_present() {
+        let dir = tempdir().unwrap();
+        // First patch
+        patch_claude_settings(dir.path(), false).unwrap();
+        // Second patch should skip
+        let result = patch_claude_settings(dir.path(), false).unwrap();
+        assert!(matches!(result, WriteResult::Skipped));
     }
 
     #[test]
