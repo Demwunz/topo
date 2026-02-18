@@ -13,6 +13,20 @@ impl<'a> Scanner<'a> {
         Self { root }
     }
 
+    /// Directories that are always excluded from scanning, regardless of .gitignore.
+    /// These are either VCS internals or universally non-source content.
+    const ALWAYS_SKIP_DIRS: &'static [&'static str] = &[
+        ".git",
+        "node_modules",
+        ".topo",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".env",
+        ".svn",
+        ".hg",
+    ];
+
     /// Scan the directory tree and return metadata for all non-ignored files.
     pub fn scan(&self) -> anyhow::Result<Vec<FileInfo>> {
         let mut files = Vec::new();
@@ -22,6 +36,16 @@ impl<'a> Scanner<'a> {
             .git_ignore(true)
             .git_global(true)
             .git_exclude(true)
+            .filter_entry(|entry| {
+                // Skip directories that should always be excluded
+                if entry.file_type().is_some_and(|ft| ft.is_dir())
+                    && let Some(name) = entry.file_name().to_str()
+                    && Self::ALWAYS_SKIP_DIRS.contains(&name)
+                {
+                    return false;
+                }
+                true
+            })
             .build();
 
         for entry in walker {
@@ -45,11 +69,6 @@ impl<'a> Scanner<'a> {
 
             // Skip empty relative paths (the root itself)
             if rel_path.as_os_str().is_empty() {
-                continue;
-            }
-
-            // Skip Topo's own data directory
-            if rel_path.starts_with(".topo") {
                 continue;
             }
 
