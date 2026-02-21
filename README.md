@@ -19,19 +19,25 @@
 
 ---
 
-## The Problem
+**The right files. In seconds. Every time.**
 
-LLMs are only as good as the context you give them. But codebases have thousands of files — and you can't paste them all into a prompt.
+Topo scores every file in your repo against your task — using text relevance, path structure, import graphs, git history, and file roles — and packs the top results into your token budget. One command replaces the grep-and-guess ritual that starts every AI coding session.
 
-A typical workaround is chaining grep and glob queries, guessing at naming conventions, and hoping nothing was missed. Every new task is a cold start — rediscovering the codebase before any real work begins.
+- Indexes 28,000 files in under 4 seconds. Small repos finish in milliseconds
+- Surfaces structurally critical files that no keyword search would find — via PageRank over cross-language import graphs
+- Fuses five independent signals with Reciprocal Rank Fusion. No single signal decides alone
 
-**Topo solves the cold-start problem.** One command indexes your repo, scores every file against your task, and outputs exactly what the LLM needs — within your token budget. No more manual file discovery. Kubernetes-sized repos (28k files) index in under 4 seconds. Small repos finish in milliseconds.
+<p align="right">(<a href="#topo">back to top</a>)</p>
+
+---
 
 ### Who is this for?
 
-- **LLM agent builders** who need deterministic, machine-readable file selection
-- **Developers using AI assistants** who want better context without manual cherry-picking
-- **Teams building AI workflows** who need a fast, scriptable context pipeline
+- **Solo devs using AI assistants** — stop manually pasting files into Claude, Cursor, or Copilot. Topo picks the right ones for you
+- **Teams where every AI task starts with "which files do I need?"** — eliminate the repeated context-building ritual
+- **LLM agent and tool builders** — deterministic, machine-readable file selection via JSONL or JSON. 18 languages, no guessing
+- **Anyone hitting token limits** — precise budget controls (`--max-tokens`, `--max-bytes`) so you fill the window with signal, not noise
+- **Automation pipelines** — scriptable context for code review, PR summaries, or doc generation
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
@@ -39,12 +45,11 @@ A typical workaround is chaining grep and glob queries, guessing at naming conve
 
 ## How Topo Helps
 
-- ⚡ **Fast** — 50 files in 1ms, 28k files in under 4 seconds. Incremental updates skip unchanged files via SHA-256, so re-indexes are near-instant
-- 🎯 **Accurate** — multi-signal scoring fuses BM25F text search, heuristics, import graphs, and git history with Reciprocal Rank Fusion. No single signal decides alone
-- 🌍 **Polyglot** — indexes every file in your repo across 18 languages, with regex chunking for speed and tree-sitter available for deep enrichment
-- 🎛️ **Precise budgets** — `--max-bytes`, `--max-tokens`, `--min-score`, `--top` give you exact control over what goes into the context window
-- 📦 **Zero dependencies** — single static binary, no runtime, no config. Download and run
-- 🔌 **Four output formats** — JSONL for pipes, JSON for APIs, compact for hooks, human-readable for terminals. Auto-detects context
+- ⚡ **28,000 files scored in under 4 seconds** — incremental updates via SHA-256 skip unchanged files, so re-indexes are near-instant. Small repos finish in milliseconds
+- 🎯 **Multi-signal accuracy** — BM25F text search + path heuristics + import graph PageRank + git history, fused with Reciprocal Rank Fusion. Discovers hub files no keyword search would find
+- 🎛️ **Precise token budgets** — `--max-bytes`, `--max-tokens`, `--min-score`, `--top` give exact control over what goes into the context window
+- 🔌 **Works with every AI tool** — native hooks for Claude Code, rules for Cursor, instructions for Copilot, MCP server for everything else. `topo init` sets them all up
+- 📦 **18 languages, zero dependencies** — single static binary. No runtime, no config, no API keys. Download and run
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
