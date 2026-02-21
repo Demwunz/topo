@@ -171,6 +171,13 @@ fn capture_index(query: &Query, name: &str) -> Option<u32> {
     names.iter().position(|n| *n == name).map(|i| i as u32)
 }
 
+/// Get the tree-sitter Language for a given topo Language.
+///
+/// Returns `None` if no grammar is registered for the language.
+pub fn ts_language_for(lang: Language) -> Option<tree_sitter::Language> {
+    GRAMMARS.get(&lang).map(|e| e.language.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

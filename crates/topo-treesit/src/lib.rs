@@ -9,6 +9,7 @@ mod ts_chunker;
 
 pub use regex_chunker::RegexChunker;
 pub use ts_chunker::TreeSitterChunker;
+pub use ts_chunker::ts_language_for;
 
 use topo_core::{Chunk, Language};
 
