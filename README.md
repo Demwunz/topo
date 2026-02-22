@@ -467,11 +467,10 @@ Topo combines multiple signals using Reciprocal Rank Fusion (RRF) to produce a s
 ### How it works
 
 1. **Scan** — Walk the repo respecting `.gitignore`, classify language and role
-2. **Index** — Extract imports and compute PageRank scores at index time (stored in `.topo/index.bin`, zero query-time cost)
+2. **Index** — Extract imports and compute PageRank scores at index time (zero query-time cost)
 3. **Score** — BM25F content matching + heuristic path analysis, blended 60/40
-4. **Fuse** — Structural signals (PageRank, git recency) combined with base ranking via RRF (`deep`/`thorough` presets)
-5. **Budget** — Enforce `--max-bytes` / `--max-tokens`, greedily including top files
-6. **Output** — Render as JSONL, JSON, compact, or human-readable table
+4. **Fuse** — Structural signals (PageRank, git recency) combined with base ranking via RRF (`deep`/`thorough` presets). Top results are returned within your `--max-bytes` / `--max-tokens` limit
+5. **Output** — Render as JSONL, JSON, compact, or human-readable table
 
 ### File roles
 
