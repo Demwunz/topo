@@ -755,16 +755,13 @@ See [DELIVERY.md](docs/DELIVERY.md) for the full roadmap and [SPEC.md](docs/SPEC
 
 ---
 
-## Documentation
+## Further Reading
 
 | Document | Description |
 |----------|-------------|
 | [BENCHMARKS](BENCHMARKS.md) | Performance and quality benchmarks across real-world repos |
 | [COMPARISON](COMPARISON.md) | Feature comparison with ripgrep, Sourcegraph, Cursor, aider, and Copilot |
-| [PRD](docs/PRD.md) | Product requirements — what Topo is and who it's for |
 | [SPEC](docs/SPEC.md) | Technical specification — architecture, data formats, APIs |
-| [RESEARCH](docs/RESEARCH.md) | Rust migration analysis and crate evaluation |
-| [DELIVERY](docs/DELIVERY.md) | Phased delivery plan with 42 issues across 8 phases |
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
