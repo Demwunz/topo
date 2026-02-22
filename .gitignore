@@ -6,3 +6,4 @@
 *.swo
 .repo-context-cache/
 .topo-cache/
+strategy/
