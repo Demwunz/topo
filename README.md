@@ -21,7 +21,7 @@
 
 Topo builds a semantic index of your codebase — every function, type, import, and file relationship — then answers questions about it in milliseconds. No API calls, no cloud.
 
-Today, that means **smart file selection for LLMs**: describe "auth middleware" and get back the implementation, its dependencies, and the config that wires it up — even when none of them match your search terms. Same engine, more applications coming.
+In practice: describe "auth middleware" and get back the implementation, its dependencies, and the config that wires it up — even when none of them match your search terms.
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
@@ -42,14 +42,13 @@ Today, that means **smart file selection for LLMs**: describe "auth middleware" 
 ## How It Works
 
 ```
-Query → Scan → Index → Score → Budget → Output
+Query → Scan → Index → Score → Output
 ```
 
 1. **Scan** — walks your repo respecting `.gitignore`, classifies each file by language and role
-2. **Index** — extracts functions, types, and imports. Builds an import graph and computes PageRank. Stores everything in a binary index (`.topo/index.bin`) with incremental updates via SHA-256 fingerprinting
-3. **Score** — BM25F text matching (filename 5x, symbols 3x, body 1x) blended with heuristic signals (path depth, file role, well-known directories), fused with structural signals (PageRank, git recency) via Reciprocal Rank Fusion
-4. **Budget** — greedily fills your token budget with the highest-scoring files
-5. **Output** — JSONL, JSON, compact, or human-readable table
+2. **Index** — extracts functions, types, and imports. Builds an import graph and computes PageRank. Stores everything in a binary index with incremental updates
+3. **Score** — ranks every file by text relevance, structure, and centrality. Returns the top results that fit your size limit
+4. **Output** — JSONL, JSON, compact, or human-readable table
 
 The same index powers `topo quick`, `topo query`, `topo explain`, the MCP server, and Claude Code hooks.
 
