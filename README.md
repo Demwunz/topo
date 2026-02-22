@@ -2,7 +2,7 @@
 
 # Topo
 
-**Smart file selection for LLMs. Instant results. Precise selection. No wasted tokens.**
+**Codebase intelligence for AI tools and developers. Instant. Precise. Fully local.**
 
   <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust" />
   <img src="https://img.shields.io/badge/CLI-000000?style=flat-square&logo=windowsterminal&logoColor=white" alt="CLI" />
@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
   <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
 
-[Quickstart](#quickstart) · [MCP Server](#mcp-server) · [AI Setup](#ai-assistant-setup) · [Hooks](#claude-code-hooks) · [Commands](#commands) · [Scoring](#scoring-engine) · [Installation](#installation)
+[Quickstart](#quickstart) · [How It Works](#how-it-works) · [Commands](#commands) · [MCP Server](#mcp-server) · [AI Setup](#ai-assistant-setup) · [Installation](#installation)
 
 ![Topo demo](vhs/hero.gif)
 
@@ -19,11 +19,9 @@
 
 ---
 
-**Instant. Precise. Lean.**
+Topo builds a semantic index of your codebase — every function, type, import, and file relationship — then answers questions about it in milliseconds. No API calls, no cloud.
 
-Topo scores every file in your codebase against your task and returns ranked, token-budgeted context. Results arrive in milliseconds. Re-indexes skip unchanged files, so even large codebases stay fast. No API calls, no cloud.
-
-Describe "auth middleware" and get back the implementation, its dependencies, and the config that wires it up — even when none of them match your search terms.
+Today, that means **smart file selection for LLMs**: describe "auth middleware" and get back the implementation, its dependencies, and the config that wires it up — even when none of them match your search terms. Same engine, more applications coming.
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
@@ -31,11 +29,29 @@ Describe "auth middleware" and get back the implementation, its dependencies, an
 
 ## Features
 
-- ⚡ **Millisecond results** — small repos return instantly. 28,000-file codebases index in under 4 seconds. Changed files re-index automatically; unchanged files are skipped
-- 🎯 **Finds files keywords miss** — scores every file by text relevance, path structure, import relationships, git history, and file role. A hub module imported by 40 files ranks high even if its name has nothing to do with your task
-- 🎛️ **Precise token budgets** — `--max-tokens`, `--max-bytes`, `--top`, `--min-score`. Fill your context window with signal, not noise
-- 🔌 **Works with every AI tool** — native hooks for Claude Code, rules for Cursor, instructions for Copilot, MCP server for everything else. `topo init` sets them all up
-- 📦 **Single binary, zero config** — 18 languages out of the box. No runtime, no API keys. Download and run
+- 🧠 **Understands your code** — indexes functions, types, and imports across 18 languages. Builds an import graph and scores file importance with PageRank. Knows which files are central to your codebase, not just which ones match your keywords
+- 🎯 **Finds what keywords miss** — BM25F search scores filenames, symbols, and content as separate fields. A hub module imported by 40 files ranks high even when its name has nothing to do with your query
+- ⚡ **Millisecond results** — small repos return instantly. 28k-file codebases index in under 4 seconds. Only changed files re-index
+- 🔌 **Powers any AI tool** — native hooks for Claude Code, rules for Cursor, instructions for Copilot, MCP server for everything else. One command sets them all up
+- 📦 **Single binary, fully local** — no runtime, no API keys, no cloud. Download and run
+
+<p align="right">(<a href="#topo">back to top</a>)</p>
+
+---
+
+## How It Works
+
+```
+Query → Scan → Index → Score → Budget → Output
+```
+
+1. **Scan** — walks your repo respecting `.gitignore`, classifies each file by language and role
+2. **Index** — extracts functions, types, and imports. Builds an import graph and computes PageRank. Stores everything in a binary index (`.topo/index.bin`) with incremental updates via SHA-256 fingerprinting
+3. **Score** — BM25F text matching (filename 5x, symbols 3x, body 1x) blended with heuristic signals (path depth, file role, well-known directories), fused with structural signals (PageRank, git recency) via Reciprocal Rank Fusion
+4. **Budget** — greedily fills your token budget with the highest-scoring files
+5. **Output** — JSONL, JSON, compact, or human-readable table
+
+The same index powers `topo quick`, `topo query`, `topo explain`, the MCP server, and Claude Code hooks.
 
 <p align="right">(<a href="#topo">back to top</a>)</p>
 
